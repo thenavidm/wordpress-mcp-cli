@@ -1,0 +1,74 @@
+{
+  "name": "@thenavidm/wordpress-mcp",
+  "version": "1.0.0",
+  "description": "WordPress MCP server for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, users and comments over the WordPress REST API, plus Elementor page data, Rank Math SEO, redirects and bulk edits through an optional helper plugin. Multi-site.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "wordpress-mcp": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "verify": "npm run typecheck && npm run build && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "license": "MIT",
+  "author": "Navid Moazzez (https://navid.me)",
+  "homepage": "https://navid.me",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/navidmoazzez/wordpress-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/navidmoazzez/wordpress-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "wordpress",
+    "wordpress-rest-api",
+    "wp-json",
+    "elementor",
+    "rankmath",
+    "seo",
+    "cms",
+    "headless-wordpress",
+    "claude",
+    "claude-code",
+    "claude-desktop",
+    "cursor",
+    "windsurf",
+    "anthropic",
+    "ai-agents",
+    "llm-tools",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "SKILL.md",
+    "LICENSE",
+    "plugin"
+  ],
+  "contributors": [
+    "Navid Moazzez (https://navid.me)"
+  ]
+}
