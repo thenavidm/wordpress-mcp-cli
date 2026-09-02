@@ -84,6 +84,8 @@ That is the whole install. `npx` fetches it on demand, so there is nothing to up
 
 ## 3. Set up your account 🔑
 
+The long version, every step with what to do when one fails, is in [references/setup.md](references/setup.md).
+
 You need an **application password**. It is not your login password. WordPress has generated these since version 5.6, they are revocable one at a time, and they carry the role of the user they belong to.
 
 Your site has to be served over HTTPS. WordPress disables application passwords over plain HTTP.
