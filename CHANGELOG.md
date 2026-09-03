@@ -2,8 +2,17 @@
 
 | Component | Version | Last Updated |
 |-----------|---------|--------------|
-| wordpress-mcp-cli | 1.1.0 | 2026-09-04 |
+| wordpress-mcp-cli | 1.1.1 | 2026-09-04 |
 | Helper plugin | 2.1.0 | 2026-09-02 |
+
+---
+
+## 1.1.1
+
+The README told you to start the HTTP transport with `--http --port 8790`. The
+port only parses in the equals form, so the space form is read as a bare flag
+and silently falls back to the default. On 8790 that looks like it worked; on
+any other port the server is not where the docs said it would be.
 
 ---
 

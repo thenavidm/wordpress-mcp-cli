@@ -2,22 +2,38 @@
   "manifest_version": "0.2",
   "name": "wordpress",
   "display_name": "WordPress",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "WordPress MCP server for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, users and comments over the WordPress REST API, plus Elementor page data, Rank Math SEO, redirects and bulk edits.",
   "long_description": "Connects Claude to your WordPress sites over the REST API.\n\nThere is no OAuth app to register and no plugin to install. An application password from Users > Profile is the whole setup. Application Passwords have shipped in WordPress core since 5.6, and are only offered on a site served over HTTPS.\n\nIt defaults to drafts. Publishing a post and permanently deleting one are the two things here that cannot be taken back, so both refuse to run without an explicit confirmation.\n\nThirty tools need nothing installed. An optional helper plugin adds the other twelve, reaching what core WordPress does not expose over REST: hidden meta fields, Elementor page data, Rank Math SEO, redirects and bulk edits.",
-  "author": { "name": "Navid Moazzez", "url": "https://navid.me" },
-  "repository": { "type": "git", "url": "https://github.com/thenavidm/wordpress-mcp-cli" },
+  "author": {
+    "name": "Navid Moazzez",
+    "url": "https://navid.me"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thenavidm/wordpress-mcp-cli"
+  },
   "homepage": "https://github.com/thenavidm/wordpress-mcp-cli",
   "documentation": "https://github.com/thenavidm/wordpress-mcp-cli#readme",
   "support": "https://github.com/thenavidm/wordpress-mcp-cli/issues",
   "license": "MIT",
-  "keywords": ["wordpress", "wp-json", "wordpress-rest-api", "elementor", "rankmath", "cms", "mcp"],
+  "keywords": [
+    "wordpress",
+    "wp-json",
+    "wordpress-rest-api",
+    "elementor",
+    "rankmath",
+    "cms",
+    "mcp"
+  ],
   "server": {
     "type": "node",
     "entry_point": "server/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/server/index.js"],
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
       "env": {
         "WORDPRESS_SITE_URL": "${user_config.site_url}",
         "WORDPRESS_USERNAME": "${user_config.username}",
@@ -56,7 +72,13 @@
   },
   "compatibility": {
     "claude_desktop": ">=0.10.0",
-    "platforms": ["darwin", "win32", "linux"],
-    "runtimes": { "node": ">=20" }
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=20"
+    }
   }
 }
