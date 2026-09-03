@@ -253,9 +253,8 @@ claude.ai runs connectors from Anthropic's cloud, so it cannot launch a local co
 npx -y @thenavidm/wordpress-mcp-cli@latest --http --port=8790
 ```
 
-The port takes an equals sign. `--port 8790` with a space is parsed as a bare
-flag and falls back to the default, which is quiet and confusing on any port but
-this one. `WORDPRESS_HTTP_PORT` works too.
+Either spelling works: `--port=8790` or `--port 8790`. `WORDPRESS_HTTP_PORT`
+works too, and the flag wins over the variable.
 
 Host it somewhere with a public HTTPS URL, then in claude.ai: **Customize**, then **Connectors**, then **+**, then **Add custom connector**. Paste the URL and click **Add**.
 
