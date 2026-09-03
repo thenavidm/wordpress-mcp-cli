@@ -1,4 +1,69 @@
-# Versions
+# WordPress MCP Server & CLI changelog
+
+| Component | Version | Last Updated |
+|-----------|---------|--------------|
+| wordpress-mcp-cli | 1.1.0 | 2026-09-04 |
+| Helper plugin | 2.1.0 | 2026-09-02 |
+
+---
+
+## 1.1.0
+
+The CLI, and the rename that goes with it.
+
+**The repository and the package are now `wordpress-mcp-cli`.** The name said
+server when the thing ships two surfaces. The binaries are unchanged:
+`wordpress-mcp` is still what an MCP client launches and `wordpress-cli` is
+still what you type. This is the first release on npm, so nothing points at the
+old name.
+
+**`wordpress-cli` is every tool as a shell command.** All 42 of them, generated
+from the same `ALL_TOOLS` array the MCP server registers, through the same
+handlers and the same `WriteGuard`. Nothing is described twice, so a tool added
+tomorrow is a command tomorrow. The command is the tool name with dashes, and
+the underscore spelling works too.
+
+That matters for cost. An MCP server sends its whole tool list on every turn
+whether or not WordPress comes up; the CLI costs nothing until you type it. The
+measured numbers are in the README.
+
+**Exit codes an agent can branch on.** 0 ok, 2 usage or a refused write, 3 not
+found, 4 auth, 5 API, 7 rate limited, 10 nothing configured. Four of those were
+wrong before this release:
+
+- Nothing configured exited 4, because "no WordPress site is configured" names
+  an application password and the auth branch matched it first. It now exits 10,
+  which is the code that means *set something up*, not *your credential expired*.
+- A write the guard refused exited 5, as though the site had failed. It exits 2:
+  the caller has to add `--confirm` or lift `WORDPRESS_READ_ONLY`, and no retry
+  will help.
+- An array of enum values took JSON, so `--status draft` was rejected and you
+  had to write `--status '"draft"'`.
+- `wordpress-cli doctor` and `wordpress-cli help` were rejected as unknown
+  commands, which sent anyone whose setup was broken to the server binary to
+  diagnose the CLI. Both now reach the entry point.
+
+**`--select` no longer drops fields.** Two paths under one head overwrote each
+other, so `--select posts.id,posts.title` returned only the title and said
+nothing about it. Paths are now grouped by their first segment before recursing.
+That was silent data loss in the one flag whose entire purpose is choosing what
+you keep, and on a WordPress listing `--select` is not optional: a page of posts
+is mostly rendered HTML and `_links` nobody asked for.
+
+**One version number, read from `package.json` at startup.** It was a literal in
+`server.ts`, so `--version`, `doctor`, the MCP handshake and the desktop
+extension could each report a number the running code was not.
+
+**A Claude Desktop extension.** `desktop-extension/build.sh` produces a `.mcpb`
+that vendors its own dependencies, so it installs on a double click and asks for
+the site address, the username and the application password in a form rather
+than a JSON file.
+
+**The publish workflow fires on a tag** and refuses when the tag and
+`package.json` disagree, rather than on a release created by hand. A tag and a
+package version that disagree cannot be untangled once both are on the registry.
+
+---
 
 ## 1.0.0
 

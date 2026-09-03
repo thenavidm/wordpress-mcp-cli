@@ -2,21 +2,23 @@
   <img src="https://cdn.navid.media/shared/tool-logos/wordpress.jpg" alt="WordPress" width="88">
 </div>
 
-# WordPress MCP
+# WordPress MCP Server & CLI
 
-[![npm](https://img.shields.io/npm/v/@thenavidm/wordpress-mcp?color=orange&label=npm)](https://www.npmjs.com/package/@thenavidm/wordpress-mcp)
+[![npm](https://img.shields.io/npm/v/@thenavidm/wordpress-mcp-cli?color=orange&label=npm)](https://www.npmjs.com/package/@thenavidm/wordpress-mcp-cli)
 [![Licence](https://img.shields.io/badge/licence-MIT-green)](./LICENSE)
 [![YouTube](https://img.shields.io/badge/YouTube-@thenavidm-red?logo=youtube&logoColor=white)](https://youtube.com/@thenavidm?sub_confirmation=1)
 [![X](https://img.shields.io/badge/X-@thenavidm-black?logo=x)](https://x.com/thenavidm)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-thenavidm-0A66C2?logo=linkedin&logoColor=white)](https://linkedin.com/in/thenavidm)
 
-WordPress MCP server for Claude Code and AI agents. Posts, pages, custom post types, media, taxonomies, Elementor, Rank Math SEO, redirects, bulk edits, multi-site.
+WordPress MCP server and CLI for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, Elementor, Rank Math SEO, redirects, bulk edits, multi-site.
 
-It gives an agent real access to your WordPress sites over the REST API, using an application password rather than an OAuth app or a plugin.
+One install gives you both surfaces, the same 42 tools under the same names.
+
+There is no OAuth app to register and no plugin required: an application password from your own profile screen is the whole setup.
 
 It defaults to drafts. Publishing is the one thing here that cannot be taken back, so it takes a deliberate confirmation.
 
-42 tools. It reads the meta fields WordPress hides from its own REST API, which is where Elementor layouts and ACF values actually live.
+It also reads the meta fields WordPress hides from its own REST API, which is where Elementor layouts and ACF values actually live.
 
 Built and maintained by [Navid Moazzez](https://navid.me).
 
@@ -38,20 +40,78 @@ Claude: Checked the 40 published posts. Eleven have no meta description,
         noindex on the services page?
 ```
 
+## Two ways to use it
+
+### Command line
+
+`wordpress-cli` in your terminal, for scripting, cron, pipes, or just asking a
+quick question without opening anything:
+
+```bash
+wordpress-cli                                   # every command, one line each
+wordpress-cli wp-list-posts --status draft --per-page 5
+wordpress-cli wp-search "pricing"
+wordpress-cli wp-get-post --post-id 42 --select id,title.rendered
+wordpress-cli wp-create-post --title "Launch notes" --content "Draft body."
+wordpress-cli wp-list-sites --json | jq -r '.sites[].name'
+wordpress-cli wp-create-post --title "Live now" --content "…" --status publish --confirm
+wordpress-cli <command> --help                  # what any command takes
+```
+
+`--confirm` is the shell spelling of the confirmation that publishing, permanent
+deletion, replacing an Elementor layout and bulk edits require. `--json` gives
+JSON, `--compact` puts it on one line, `--select` keeps only the fields you name,
+and errors are JSON on stderr whichever you pick.
+
+`--agent` is all of it at once: `--json --compact --no-input --no-color --yes`.
+
+Exit codes, so a script can branch without reading prose: `0` ok, `2` bad
+arguments or a refused write, `3` not found, `4` auth, `5` the site failed, `7`
+rate limited, `10` nothing configured.
+
+### MCP server, for AI agents
+
+`wordpress-mcp` is what Claude Code, Claude Desktop, Cursor and the rest launch.
+You never run it by hand:
+
+```bash
+claude mcp add wordpress \
+  -e WORDPRESS_SITE_URL=https://example.com \
+  -e WORDPRESS_USERNAME=your-wp-username \
+  -e "WORDPRESS_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx" \
+  -- npx -y @thenavidm/wordpress-mcp-cli@latest
+```
+
+Then just ask: _"which of my published posts have no meta description?"_
+
+Every other client is in [section 4](#4-connect-your-client-).
+
+### Which one
+
+| Where you are | What you can reach |
+|---|---|
+| An agent that can run shell commands, like Claude Code or Cursor | Both. The CLI is the cheaper one: it costs nothing until you type it |
+| claude.ai, the Claude Desktop chat tab, or a phone | The server only. There is no shell to run a command in |
+| A terminal, a script, cron or CI | The CLI only. There is no MCP client in a shell |
+
+They are the same program reading the same tool definitions, so anything one can
+do, the other can.
+
 ## Contents
 
-| | Section | |
+| # | Section | What is in it |
 |---|---|---|
 | 1 | [What you can ask it](#1-what-you-can-ask-it-) | Real prompts, not features |
 | 2 | [Quick install](#2-quick-install-) | The package, no account needed |
 | 3 | [Set up your account](#3-set-up-your-account-) | Every click |
 | 4 | [Connect your client](#4-connect-your-client-) | Claude Code, Desktop, Cursor |
 | 5 | [Check it worked](#5-check-it-worked-) | `doctor` |
-| 6 | [Tools](#6-tools-) | All 42, by what they reach |
-| 7 | [Writing safely](#7-writing-safely-) | What is guarded and what is not |
-| 8 | [Notes and gotchas](#8-notes-and-gotchas-) | WordPress's real behaviour |
-| 9 | [Troubleshooting](#9-troubleshooting-) | Symptom to cause |
-| 10 | [FAQ](#10-faq-) | Including what an MCP server is |
+| 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs-) | ~15,400 tokens a turn, or none |
+| 7 | [Tools](#7-tools-) | All 42, by what they reach |
+| 8 | [Writing safely](#8-writing-safely-) | What is guarded and what is not |
+| 9 | [Notes and gotchas](#9-notes-and-gotchas-) | WordPress's real behaviour |
+| 10 | [Troubleshooting](#10-troubleshooting-) | Symptom to cause |
+| 11 | [FAQ](#11-faq-) | Including what an MCP server is |
 
 ---
 
@@ -76,7 +136,7 @@ The thing that is genuinely impossible without this: **reading and writing the m
 
 Node 20 or newer. Nothing else.
 
-    npx -y @thenavidm/wordpress-mcp --version
+    npx -y @thenavidm/wordpress-mcp-cli --version
 
 That is the whole install. `npx` fetches it on demand, so there is nothing to update later.
 
@@ -105,7 +165,7 @@ Paste this into Claude Code, Cursor, or any agent with terminal access:
        Do not continue until I do.
     4. Ask me for my site URL and my WordPress username.
     5. Add the server to my MCP client config with those three values.
-    6. Run `npx -y @thenavidm/wordpress-mcp doctor` and tell me what it says.
+    6. Run `npx -y @thenavidm/wordpress-mcp-cli doctor` and tell me what it says.
 
 ### Or do it yourself
 
@@ -150,7 +210,7 @@ claude mcp add wordpress \
   -e WORDPRESS_SITE_URL=https://example.com \
   -e WORDPRESS_USERNAME=your-wp-username \
   -e "WORDPRESS_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx" \
-  -- npx -y @thenavidm/wordpress-mcp@latest
+  -- npx -y @thenavidm/wordpress-mcp-cli@latest
 ```
 
 `--scope user` makes it available in every project rather than just the current one.
@@ -167,7 +227,7 @@ claude mcp add wordpress \
   "mcpServers": {
     "wordpress": {
       "command": "npx",
-      "args": ["-y", "@thenavidm/wordpress-mcp@latest"],
+      "args": ["-y", "@thenavidm/wordpress-mcp-cli@latest"],
       "env": {
         "WORDPRESS_SITE_URL": "https://example.com",
         "WORDPRESS_USERNAME": "your-wp-username",
@@ -190,7 +250,7 @@ Quit Claude Desktop completely and reopen it.
 claude.ai runs connectors from Anthropic's cloud, so it cannot launch a local command. It needs a public HTTPS URL.
 
 ```bash
-npx -y @thenavidm/wordpress-mcp@latest --http --port 8790
+npx -y @thenavidm/wordpress-mcp-cli@latest --http --port 8790
 ```
 
 Host it somewhere with a public HTTPS URL, then in claude.ai: **Customize**, then **Connectors**, then **+**, then **Add custom connector**. Paste the URL and click **Add**.
@@ -220,7 +280,7 @@ Host it somewhere with a public HTTPS URL, then in claude.ai: **Customize**, the
 ```toml
 [mcp_servers.wordpress]
 command = "npx"
-args = ["-y", "@thenavidm/wordpress-mcp@latest"]
+args = ["-y", "@thenavidm/wordpress-mcp-cli@latest"]
 
 [mcp_servers.wordpress.env]
 WORDPRESS_SITE_URL = "https://example.com"
@@ -255,7 +315,7 @@ Without `WORDPRESS_DEFAULT_SITE`, a call that does not name a site is refused ra
 
 ## 5. Check it worked 🩺
 
-    npx -y @thenavidm/wordpress-mcp doctor
+    npx -y @thenavidm/wordpress-mcp-cli doctor
 
 It walks the chain in order and stops at the first thing actually broken: HTTPS, then the shape of the password, then authentication, then the user's role, then whether the helper plugin is installed.
 
@@ -266,7 +326,62 @@ The two that come up most:
 
 ---
 
-## 6. Tools 🛠️
+## 6. Which surface, and what each costs 💸
+
+Both surfaces carry the same 42 tools. They differ in *when* you pay for them.
+
+| What it costs | MCP server | CLI |
+|---|---|---|
+| Loaded every turn | **~15,400 tokens** | nothing |
+| Loaded when WordPress comes up | nothing more | ~2,500, once |
+| Works on claude.ai and mobile | yes | no, there is no shell there |
+| Works in a script, cron or CI | no | yes |
+| You invoke it by | asking in plain language | typing a command |
+
+An MCP server sends its whole tool list to the model on **every turn**, whether
+or not you mention WordPress. That is the price of being connected at all,
+before you ask anything.
+
+Over twenty turns where WordPress comes up once, that is roughly 308,000 tokens
+against 2,500. When the whole conversation is WordPress, the gap closes and the
+server is the better experience, because you ask in plain language instead of
+remembering flags.
+
+That figure is measured, not estimated. It is the `tools/list` payload this
+server hands back in a real MCP handshake: 68,867 characters of JSON Schema,
+which tokenises to 15,354. `node .github/scripts/handshake.mjs` prints the
+character count from a live handshake, so you can check it against your own
+build rather than trusting this page.
+
+### Where the 15,400 goes
+
+Worth knowing, because most of it is not something anyone can write away:
+
+| Layer | Share |
+|---|---|
+| JSON Schema structure: types, enums, required lists, nesting | **42%** |
+| Argument descriptions | 38% |
+| Tool descriptions | 20% |
+
+Six and a half thousand of those tokens are the protocol serialising 42 tools as
+JSON Schema. Any MCP server with this many tools pays roughly the same. The 58%
+that is prose is what stops a model guessing that `categories` takes names.
+
+### Spending less
+
+**Turn the server off when you are not editing the site.** In Claude Code that
+is `@wordpress` to toggle, and every client has an equivalent.
+
+**`WORDPRESS_READ_ONLY=1` drops it to the 22 reading tools**, measured at 7,000
+tokens rather than 15,400. Worth it on a site you only ever audit.
+
+**Or install the CLI and skip the server.** All 42 tools stay reachable, the
+standing cost is nothing, and you connect the server later on the days it earns
+its place.
+
+---
+
+## 7. Tools 🛠️
 
 Thirty need nothing installed. The twelve marked 🔌 need the [helper plugin](./plugin).
 
@@ -369,7 +484,7 @@ Thirty need nothing installed. The twelve marked 🔌 need the [helper plugin](.
 
 ---
 
-## 7. Writing safely 🛟
+## 8. Writing safely 🛟
 
 Writes work by default. Publishing is the point of the tool.
 
@@ -381,27 +496,41 @@ Trashing, drafting and ordinary edits are not guarded. Each is one click to undo
 
 ### Every environment variable
 
-| Variable | What it does |
-|---|---|
-| `WORDPRESS_SITES` | JSON array of sites, for several at once. Takes priority over the single-site variables. |
-| `WORDPRESS_SITE_URL` | The site, for the single-site case, e.g. `https://example.com`. |
-| `WORDPRESS_USERNAME` | The WordPress login name the application password belongs to. |
-| `WORDPRESS_APP_PASSWORD` | From Users > Profile > Application Passwords. Not the login password. |
-| `WORDPRESS_SITE_NAME` | The short label for that single site. Defaults to its hostname. |
-| `WORDPRESS_DEFAULT_SITE` | Which site acts when a call names none. |
-| `WORDPRESS_READ_ONLY` | `1` hides every write from the tool list. |
-| `WORDPRESS_ALLOW_DESTRUCTIVE` | `0` keeps ordinary writes and blocks publishing and permanent deletion. |
-| `WORDPRESS_AUDIT_LOG` | Path to an append-only log of every attempted write. |
-| `WORDPRESS_REQUEST_TIMEOUT_MS` | Per-request deadline. Default `30000`. |
-| `WORDPRESS_MAX_RETRIES` | Retries on rate limits and 5xx. Reads only, never writes. Default `2`. |
-| `WORDPRESS_USER_AGENT` | Override the User-Agent sent to the site. |
-| `WORDPRESS_HTTP_PORT` | Port for `--http`. Default `8790`. |
-| `WORDPRESS_HTTP_HOST` | Interface for `--http`. Default `127.0.0.1`. |
-| `WORDPRESS_HTTP_TOKEN` | Bearer token required by the HTTP transport. |
+**Credentials.** Both surfaces read the same ones, so a shell that can run
+`wordpress-cli` needs nothing beyond what the MCP server already has.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `WORDPRESS_SITES` | none | JSON array of sites, for several at once. Takes priority over the single-site variables below. |
+| `WORDPRESS_SITE_URL` | none | The site, for the single-site case, e.g. `https://example.com`. |
+| `WORDPRESS_USERNAME` | none | The WordPress login name the application password belongs to. |
+| `WORDPRESS_APP_PASSWORD` | none | From Users > Profile > Application Passwords. Not the login password. |
+| `WORDPRESS_SITE_NAME` | the hostname | The short label for that single site. |
+| `WORDPRESS_DEFAULT_SITE` | none | Which site acts when a call names none. Without it, a call that names none is refused rather than guessed at. |
+
+**Safety.** All three apply identically to both surfaces, because both go
+through the same `WriteGuard`.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `WORDPRESS_READ_ONLY` | off | `1` removes all 20 write tools from the list, rather than refusing them at call time. |
+| `WORDPRESS_ALLOW_DESTRUCTIVE` | on | `0` keeps ordinary writes and blocks publishing and permanent deletion. |
+| `WORDPRESS_AUDIT_LOG` | none | Path to an append-only log of every attempted write, allowed and blocked alike. |
+
+**Tuning.**
+
+| Variable | Default | What it does |
+|---|---|---|
+| `WORDPRESS_REQUEST_TIMEOUT_MS` | `30000` | Per-request deadline. |
+| `WORDPRESS_MAX_RETRIES` | `2` | Retries on rate limits and 5xx. Reads only, never writes: a retried POST on a flaky connection is how a post gets published twice. |
+| `WORDPRESS_USER_AGENT` | `wordpress-mcp` | Override the User-Agent sent to the site. Some hosts filter on it. |
+| `WORDPRESS_HTTP_PORT` | `8790` | Port for `--http`. |
+| `WORDPRESS_HTTP_HOST` | `127.0.0.1` | Interface for `--http`. |
+| `WORDPRESS_HTTP_TOKEN` | none | Bearer token required by the HTTP transport. Without it, `--http` refuses to bind anything but loopback. |
 
 ---
 
-## 8. Notes and gotchas ⚠️
+## 9. Notes and gotchas ⚠️
 
 - **Publishing is the only irreversible act on a WordPress site.** Feeds, mailing list plugins and social auto-posters read a published post within minutes. Setting the status back to draft removes the page and recalls nothing.
 - **An Elementor page ignores its own post content.** The layout is a single serialised JSON tree in `_elementor_data`. Editing such a page with `wp_update_page` writes a field nothing renders, and creating one leaves a page that opens blank in the builder. Duplicate an existing page instead.
@@ -416,9 +545,9 @@ Trashing, drafting and ordinary edits are not guarded. Each is one click to undo
 
 ---
 
-## 9. Troubleshooting 🔧
+## 10. Troubleshooting 🔧
 
-Run `npx -y @thenavidm/wordpress-mcp doctor` first. It names the first broken thing rather than the last.
+Run `npx -y @thenavidm/wordpress-mcp-cli doctor` first. It names the first broken thing rather than the last.
 
 | Symptom | Cause |
 |---|---|
@@ -434,7 +563,7 @@ Run `npx -y @thenavidm/wordpress-mcp doctor` first. It names the first broken th
 
 ---
 
-## 10. FAQ ❓
+## 11. FAQ ❓
 
 <details>
 <summary><b>What is an MCP server?</b></summary>
@@ -561,7 +690,7 @@ tools that depend on it stop working; the other thirty carry on.
 
 ## Questions
 
-Run into a problem or have a question? [Open an issue](https://github.com/thenavidm/wordpress-mcp/issues) and I will help.
+Run into a problem or have a question? [Open an issue](https://github.com/thenavidm/wordpress-mcp-cli/issues) and I will help.
 
 ## About the author 👋
 

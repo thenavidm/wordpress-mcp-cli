@@ -6,3 +6,5 @@ dist/
 .DS_Store
 coverage/
 _archive/
+desktop-extension/build/
+desktop-extension/*.mcpb

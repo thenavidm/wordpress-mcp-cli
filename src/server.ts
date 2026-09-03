@@ -12,6 +12,7 @@
  * comes from.
  */
 
+import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WpClient, type FetchLike } from "./api/client.js";
 import { loadConfig, type Config } from "./config.js";
@@ -24,7 +25,16 @@ import {
   type ToolContext,
 } from "./tools/kit.js";
 
-export const VERSION = "1.0.0";
+/**
+ * One version, read from `package.json` at startup.
+ *
+ * A literal here is a second place to remember. The desktop extension and
+ * `--version` both quote this, and a release that bumps the package while the
+ * server still answers the old number is the kind of thing nobody notices until
+ * a bug report cites a version that was never shipped.
+ */
+const require = createRequire(import.meta.url);
+export const VERSION: string = (require("../package.json") as { version: string }).version;
 
 export const INSTRUCTIONS = `Tools for WordPress: posts, pages, custom post types, media, categories and tags, users and comments, plus Elementor layouts, Rank Math SEO, redirects and bulk edits.
 

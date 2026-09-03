@@ -1,7 +1,7 @@
 {
-  "name": "@thenavidm/wordpress-mcp",
-  "version": "1.0.0",
-  "description": "WordPress MCP server for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, users and comments over the WordPress REST API, plus Elementor page data, Rank Math SEO, redirects and bulk edits through an optional helper plugin. Multi-site.",
+  "name": "@thenavidm/wordpress-mcp-cli",
+  "version": "1.1.0",
+  "description": "WordPress MCP server and CLI for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, users and comments over the WordPress REST API, plus Elementor page data, Rank Math SEO, redirects and bulk edits through an optional helper plugin. Multi-site.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
@@ -33,13 +33,13 @@
   },
   "license": "MIT",
   "author": "Navid Moazzez (https://navid.me)",
-  "homepage": "https://navid.me",
+  "homepage": "https://github.com/thenavidm/wordpress-mcp-cli#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thenavidm/wordpress-mcp.git"
+    "url": "git+https://github.com/thenavidm/wordpress-mcp-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/thenavidm/wordpress-mcp/issues"
+    "url": "https://github.com/thenavidm/wordpress-mcp-cli/issues"
   },
   "keywords": [
     "mcp",

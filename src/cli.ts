@@ -89,7 +89,11 @@ function kindOf(schema: ZodTypeAny): { kind: FlagKind; choices?: string[]; repea
       // array of objects is not worth flattening, so it takes JSON.
       const element = unwrap((schema as unknown as { _def: { type: ZodTypeAny } })._def.type).inner;
       const elementKind = (element as { _def: { typeName?: string } })._def.typeName;
-      const scalar = elementKind === "ZodString" || elementKind === "ZodNumber";
+      // An enum element is a word you type, so it belongs with the scalars.
+      // Treating it as JSON meant `--status draft` was rejected and you had to
+      // write `--status '"draft"'` instead.
+      const scalar =
+        elementKind === "ZodString" || elementKind === "ZodNumber" || elementKind === "ZodEnum";
       return { kind: scalar ? "string" : "json", repeatable: true };
     }
     default:
@@ -222,10 +226,21 @@ export function exitCodeFor(error: unknown): number {
   const status = e?.status;
   const text = `${e?.code ?? ""} ${e?.message ?? ""}`.toLowerCase();
   if (status === 429 || /rate ?limit/.test(text)) return EXIT.rateLimited;
+  // Config before auth: "no WordPress site is configured" names an application
+  // password, and matching auth first sent someone who had configured nothing
+  // looking for an expired credential. Only when there is no HTTP status, so a
+  // real 401 from the site still wins.
+  if (
+    !status &&
+    /not configured|no [a-z ]*(site|account|credential|password|key)s? (is |are )?configured|missing .*env/.test(text)
+  )
+    return EXIT.config;
   if (status === 401 || status === 403 || /auth|credential|application password|rest_forbidden|rest_cannot/.test(text))
     return EXIT.auth;
   if (status === 404 || /not found|no route|invalid_id/.test(text)) return EXIT.notFound;
-  if (/not configured|missing .*env|config/.test(text)) return EXIT.config;
+  // A write the guard refused is a usage problem, not an API failure: the
+  // caller has to add --confirm or lift READ_ONLY, and no retry will help.
+  if (/will not run without|read-only|is unavailable/.test(text)) return EXIT.usage;
   if (typeof status === "number" && status >= 500) return EXIT.api;
   return EXIT.api;
 }
@@ -238,13 +253,23 @@ export function exitCodeFor(error: unknown): number {
 export function selectFields(data: unknown, paths: string[]): unknown {
   if (Array.isArray(data)) return data.map((d) => selectFields(d, paths));
   if (data === null || typeof data !== "object") return data;
-  const out: Record<string, unknown> = {};
+  // Paths are grouped by their first segment before recursing. Walking them one
+  // at a time and assigning `out[head]` each time meant the last path won:
+  // `--select posts.id,posts.title` returned only the title, silently.
+  const byHead = new Map<string, string[]>();
   for (const path of paths) {
     const [head, ...rest] = path.split(".");
     if (head === undefined) continue;
+    const group = byHead.get(head) ?? [];
+    if (rest.length) group.push(rest.join("."));
+    byHead.set(head, group);
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [head, rest] of byHead) {
     const value = (data as Record<string, unknown>)[head];
     if (value === undefined) continue;
-    out[head] = rest.length ? selectFields(value, [rest.join(".")]) : value;
+    out[head] = rest.length ? selectFields(value, rest) : value;
   }
   return out;
 }

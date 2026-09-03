@@ -1,0 +1,62 @@
+{
+  "manifest_version": "0.2",
+  "name": "wordpress",
+  "display_name": "WordPress",
+  "version": "1.1.0",
+  "description": "WordPress MCP server for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, users and comments over the WordPress REST API, plus Elementor page data, Rank Math SEO, redirects and bulk edits.",
+  "long_description": "Connects Claude to your WordPress sites over the REST API.\n\nThere is no OAuth app to register and no plugin to install. An application password from Users > Profile is the whole setup. Application Passwords have shipped in WordPress core since 5.6, and are only offered on a site served over HTTPS.\n\nIt defaults to drafts. Publishing a post and permanently deleting one are the two things here that cannot be taken back, so both refuse to run without an explicit confirmation.\n\nThirty tools need nothing installed. An optional helper plugin adds the other twelve, reaching what core WordPress does not expose over REST: hidden meta fields, Elementor page data, Rank Math SEO, redirects and bulk edits.",
+  "author": { "name": "Navid Moazzez", "url": "https://navid.me" },
+  "repository": { "type": "git", "url": "https://github.com/thenavidm/wordpress-mcp-cli" },
+  "homepage": "https://github.com/thenavidm/wordpress-mcp-cli",
+  "documentation": "https://github.com/thenavidm/wordpress-mcp-cli#readme",
+  "support": "https://github.com/thenavidm/wordpress-mcp-cli/issues",
+  "license": "MIT",
+  "keywords": ["wordpress", "wp-json", "wordpress-rest-api", "elementor", "rankmath", "cms", "mcp"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "WORDPRESS_SITE_URL": "${user_config.site_url}",
+        "WORDPRESS_USERNAME": "${user_config.username}",
+        "WORDPRESS_APP_PASSWORD": "${user_config.app_password}",
+        "WORDPRESS_READ_ONLY": "${user_config.read_only}"
+      }
+    }
+  },
+  "user_config": {
+    "site_url": {
+      "type": "string",
+      "title": "Your site address",
+      "description": "The home page of the site, for example https://example.com. HTTPS, because WordPress only offers application passwords over HTTPS.",
+      "required": true
+    },
+    "username": {
+      "type": "string",
+      "title": "WordPress username",
+      "description": "The login name the application password belongs to. Not your display name and not your email address.",
+      "required": true
+    },
+    "app_password": {
+      "type": "string",
+      "title": "Application password",
+      "description": "From Users > Profile > Application Passwords in wp-admin. WordPress shows 24 characters in six groups of four; paste it with or without the spaces, either works. Never your login password.",
+      "sensitive": true,
+      "required": true
+    },
+    "read_only": {
+      "type": "boolean",
+      "title": "Read only",
+      "description": "Hide every tool that can create, edit, publish, upload or delete. Leaves the 22 reading tools.",
+      "default": false,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=20" }
+  }
+}

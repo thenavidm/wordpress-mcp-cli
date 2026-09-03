@@ -84,7 +84,7 @@ the file editor in your hosting control panel.
 
 ### Checking it took
 
-    npx -y @thenavidm/wordpress-mcp doctor
+    npx -y @thenavidm/wordpress-mcp-cli doctor
 
 The last line reports whether the plugin answered.
 

@@ -45,7 +45,7 @@ export type Config = {
 };
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
-export const USER_AGENT = "wordpress-mcp (+https://github.com/thenavidm/wordpress-mcp)";
+export const USER_AGENT = "wordpress-mcp (+https://github.com/thenavidm/wordpress-mcp-cli)";
 
 /** Trim, force a scheme, drop any trailing slash. */
 export function normalizeSiteUrl(raw: string): string {

@@ -42,7 +42,7 @@ Options:
   WORDPRESS_AUDIT_LOG               append-only log of every attempted write
   WORDPRESS_HTTP_PORT / _HOST / _TOKEN  for --http
 
-https://github.com/thenavidm/wordpress-mcp
+https://github.com/thenavidm/wordpress-mcp-cli
 `;
 
 /**
@@ -74,7 +74,18 @@ async function main(): Promise<void> {
 
   // An unknown word used to fall through and start the server, which then sat
   // waiting on stdin: a typo looked like a hang, and scripts saw exit code 0.
-  if (invokedAsCli() && command !== undefined && !command.startsWith("-")) {
+  // `doctor` and `help` belong to the entry point rather than the tool list,
+  // and they are the first things someone types when nothing works. Rejecting
+  // them as unknown commands sent that person to the server binary to diagnose
+  // the CLI.
+  const ENTRY_COMMANDS = new Set(["doctor", "help"]);
+
+  if (
+    invokedAsCli() &&
+    command !== undefined &&
+    !command.startsWith("-") &&
+    !ENTRY_COMMANDS.has(command)
+  ) {
     process.stderr.write(
       `${JSON.stringify({ error: `Unknown command '${command}'. Run \`wordpress-cli\` to list them.` }, null, 2)}\n`,
     );

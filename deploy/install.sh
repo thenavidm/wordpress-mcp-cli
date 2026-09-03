@@ -38,11 +38,11 @@ claude mcp add wordpress \
   -e "WORDPRESS_SITE_URL=$SITE_URL" \
   -e "WORDPRESS_USERNAME=$USERNAME" \
   -e "WORDPRESS_APP_PASSWORD=$APP_PASSWORD" \
-  -- npx -y @thenavidm/wordpress-mcp@latest
+  -- npx -y @thenavidm/wordpress-mcp-cli@latest
 
 echo
 echo "Added. Checking the connection:"
 WORDPRESS_SITE_URL="$SITE_URL" \
 WORDPRESS_USERNAME="$USERNAME" \
 WORDPRESS_APP_PASSWORD="$APP_PASSWORD" \
-  npx -y @thenavidm/wordpress-mcp@latest doctor
+  npx -y @thenavidm/wordpress-mcp-cli@latest doctor

@@ -10,7 +10,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { flagsFor, parseArgs, isCliCommand } from "../src/cli.js";
+import { flagsFor, parseArgs, isCliCommand, selectFields } from "../src/cli.js";
 import { ALL_TOOLS } from "../src/tools/index.js";
 
 describe("flagsFor", () => {
@@ -114,6 +114,36 @@ describe("parseArgs", () => {
 
   it("refuses a second bare argument", () => {
     expect(() => parseArgs(["one", "two"], flags)).toThrow(/Unexpected argument/);
+  });
+});
+
+/**
+ * Two paths under one head used to overwrite each other, so
+ * `--select posts.id,posts.title` quietly returned only the title. Silent data
+ * loss in a flag whose whole purpose is choosing what you keep, and on a
+ * WordPress listing `--select` is not optional: a page of posts is mostly
+ * rendered HTML and `_links` nobody asked for.
+ */
+describe("--select keeps every path, not the last one", () => {
+  it("keeps both fields when two paths share a head", () => {
+    const data = { posts: [{ id: 12, title: "Launch notes", status: "draft" }] };
+    expect(selectFields(data, ["posts.id", "posts.title"])).toEqual({
+      posts: [{ id: 12, title: "Launch notes" }],
+    });
+  });
+
+  it("groups at every depth", () => {
+    expect(selectFields({ a: { b: { c: 1, d: 2, e: 3 } } }, ["a.b.c", "a.b.e"])).toEqual({
+      a: { b: { c: 1, e: 3 } },
+    });
+  });
+
+  it("mixes a scalar with nested paths", () => {
+    expect(selectFields({ id: 12, title: { rendered: "Hi", raw: "Hi" } }, [
+      "id",
+      "title.rendered",
+      "title.raw",
+    ])).toEqual({ id: 12, title: { rendered: "Hi", raw: "Hi" } });
   });
 });
 

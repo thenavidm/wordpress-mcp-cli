@@ -84,3 +84,10 @@ if (leaked.length) {
   throw new Error(`read-only mode still advertises writes: ${leaked.join(", ")}`);
 }
 console.log(`read-only ok: ${readOnly.tools.length} tools, no writes advertised`);
+
+// The standing context cost, so the README's figure is reproducible rather than
+// remembered. This is the payload every MCP client is handed on every turn.
+console.log(
+  `tools/list payload: ${JSON.stringify(normal.tools).length} characters, ` +
+    `${JSON.stringify(readOnly.tools).length} read-only`,
+);

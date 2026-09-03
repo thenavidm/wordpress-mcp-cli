@@ -14,7 +14,7 @@ metadata:
     bins: [wordpress-cli]
   install:
     kind: npm
-    package: "@thenavidm/wordpress-mcp"
+    package: "@thenavidm/wordpress-mcp-cli"
     bins: [wordpress-cli, wordpress-mcp]
 ---
 
@@ -34,7 +34,7 @@ wordpress-cli --version
 If that fails:
 
 ```bash
-npm i -g @thenavidm/wordpress-mcp
+npm i -g @thenavidm/wordpress-mcp-cli
 ```
 
 If `--version` still reports command not found, the install directory is not on
@@ -52,7 +52,7 @@ export WORDPRESS_USERNAME=you
 export WORDPRESS_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx"
 ```
 
-`wordpress-mcp doctor` reports what is missing. Several sites at once go in
+`wordpress-cli doctor` reports what is missing. Several sites at once go in
 `WORDPRESS_SITES` as a JSON array; the full variable list is in the README.
 
 ## Finding a command
@@ -110,12 +110,12 @@ mostly rendered HTML and `_links` you did not ask for.
 | Code | Meaning |
 |---|---|
 | 0 | Success |
-| 2 | Usage error, wrong or missing arguments |
+| 2 | Usage error: wrong or missing arguments, or a write the guard refused. Fix the call, do not retry |
 | 3 | Not found |
 | 4 | Authentication or capability refused |
-| 5 | API error upstream, including a blocked write |
+| 5 | The site failed: a 5xx, a security plugin answering instead of WordPress, or a missing helper plugin |
 | 7 | Rate limited, wait and retry |
-| 10 | No site configured |
+| 10 | Nothing configured. Set the credentials before retrying anything |
 
 Branch on these rather than reading the message.
 
@@ -231,7 +231,7 @@ claude mcp add wordpress \
   -e WORDPRESS_SITE_URL=https://example.com \
   -e WORDPRESS_USERNAME=you \
   -e WORDPRESS_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx" \
-  -- npx -y @thenavidm/wordpress-mcp
+  -- npx -y @thenavidm/wordpress-mcp-cli
 ```
 
 Verify with `claude mcp list`. Every other client is in the README.
