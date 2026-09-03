@@ -14,10 +14,15 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WpClient, type FetchLike } from "./api/client.js";
-import { loadConfig, selectSite, type Config } from "./config.js";
+import { loadConfig, type Config } from "./config.js";
 import { WriteGuard } from "./safety.js";
 import { ALL_TOOLS } from "./tools/index.js";
-import { declaredRisk, register, type ToolContext } from "./tools/kit.js";
+import {
+  declaredRisk,
+  makeContext as makeToolContext,
+  register,
+  type ToolContext,
+} from "./tools/kit.js";
 
 export const VERSION = "1.0.0";
 
@@ -54,24 +59,11 @@ export type BuiltServer = {
  * one is cheap but doing it inside a loop over forty posts is noise.
  */
 export function makeContext(config: Config, fetchImpl: FetchLike = fetch): ToolContext {
-  const guard = new WriteGuard(config);
-  const clients = new Map<string, WpClient>();
-
-  const site = (hint?: string) => selectSite(config, hint);
-
-  return {
+  return makeToolContext(
+    (site) => new WpClient(site, config, fetchImpl),
     config,
-    guard,
-    site,
-    client: (hint?: string) => {
-      const resolved = site(hint);
-      const existing = clients.get(resolved.name);
-      if (existing) return existing;
-      const created = new WpClient(resolved, config, fetchImpl);
-      clients.set(resolved.name, created);
-      return created;
-    },
-  };
+    new WriteGuard(config),
+  );
 }
 
 export function buildServer(

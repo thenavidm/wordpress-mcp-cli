@@ -23,7 +23,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z, type ZodRawShape } from "zod";
 import { HelperPluginMissingError, WordPressError, WriteBlockedError } from "../api/errors.js";
 import type { WpClient } from "../api/client.js";
-import type { Config, Site } from "../config.js";
+import { selectSite, type Config, type Site } from "../config.js";
 import { annotationsFor, type Risk, type Surface, type WriteGuard } from "../safety.js";
 
 export type ToolContext = {
@@ -175,6 +175,43 @@ export function register(
       }
     }) as never,
   );
+}
+
+/**
+ * Build the context a tool handler runs against.
+ *
+ * The MCP path and the CLI path both need one, and they differ only in where
+ * the guard comes from: the server builds its own, while the CLI builds one
+ * with `surface: "cli"` so a refusal names `--confirm` rather than
+ * `confirm: true`. Assembling it here rather than in `server.ts` is what stops
+ * the two surfaces drifting into two ideas of what a tool can reach.
+ *
+ * A client factory rather than a client, because "which site" is part of the
+ * address in WordPress and is not known until a call names one. Clients are
+ * cached per site name, since building one is cheap but doing it inside a loop
+ * over forty posts is noise.
+ */
+export function makeContext(
+  createClient: (site: Site) => WpClient,
+  config: Config,
+  guard: WriteGuard,
+): ToolContext {
+  const clients = new Map<string, WpClient>();
+  const site = (hint?: string): Site => selectSite(config, hint);
+
+  return {
+    config,
+    guard,
+    site,
+    client: (hint?: string) => {
+      const resolved = site(hint);
+      const existing = clients.get(resolved.name);
+      if (existing) return existing;
+      const created = createClient(resolved);
+      clients.set(resolved.name, created);
+      return created;
+    },
+  };
 }
 
 /** Copy only the arguments a caller actually set, so a PATCH does not blank fields. */

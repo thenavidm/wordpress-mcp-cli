@@ -7,7 +7,7 @@
  * Requires PHP: 7.4
  * Author: Navid Moazzez
  * Author URI: https://navid.me
- * Plugin URI: https://github.com/navidmoazzez/wordpress-mcp
+ * Plugin URI: https://github.com/thenavidm/wordpress-mcp
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  *

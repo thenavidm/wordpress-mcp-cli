@@ -5,7 +5,8 @@
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "wordpress-mcp": "dist/index.js"
+    "wordpress-mcp": "dist/index.js",
+    "wordpress-cli": "dist/index.js"
   },
   "engines": {
     "node": ">=20"
@@ -22,7 +23,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -34,10 +36,10 @@
   "homepage": "https://navid.me",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/navidmoazzez/wordpress-mcp.git"
+    "url": "git+https://github.com/thenavidm/wordpress-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/navidmoazzez/wordpress-mcp/issues"
+    "url": "https://github.com/thenavidm/wordpress-mcp/issues"
   },
   "keywords": [
     "mcp",

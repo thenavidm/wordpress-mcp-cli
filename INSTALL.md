@@ -1,7 +1,7 @@
-# Setup, in detail
+# Install
 
-The short version is in the [README](../README.md#3-set-up-your-account-). This
-is the long one, for when something does not work.
+The short version is in the [README](README.md#3-set-up-your-account-). This is
+the long one, for when something does not work.
 
 ## What you are creating
 

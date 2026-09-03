@@ -1,6 +1,6 @@
 # WordPress MCP Helper
 
-The companion plugin for [wordpress-mcp](https://github.com/navidmoazzez/wordpress-mcp).
+The companion plugin for [wordpress-mcp](https://github.com/thenavidm/wordpress-mcp).
 
 Thirty of the server's 42 tools need nothing installed. This plugin enables the
 other twelve.

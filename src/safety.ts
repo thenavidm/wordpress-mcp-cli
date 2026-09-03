@@ -52,11 +52,28 @@ export type Surface =
   /** The helper plugin in this repo, `wordpress-mcp/v1`. */
   | "helper";
 
+/**
+ * Which surface a guard is protecting, so a refusal names the right syntax.
+ *
+ * Named `GuardSurface` rather than `Surface`: this file already owns `Surface`
+ * for which half of the WordPress API a tool needs, `core` or `helper`, and
+ * every tool spec declares one. Two unrelated meanings on one name would be a
+ * worse trade than a longer name.
+ */
+export type GuardSurface = "mcp" | "cli";
+
 export class WriteGuard {
   private readonly config: Config;
+  private readonly surface: GuardSurface;
 
-  constructor(config: Config) {
+  constructor(config: Config, surface: GuardSurface = "mcp") {
     this.config = config;
+    this.surface = surface;
+  }
+
+  /** `--confirm` in a terminal, `confirm: true` in a tool call. */
+  private get confirmFlag(): string {
+    return this.surface === "cli" ? "--confirm" : "confirm: true";
   }
 
   get readOnly(): boolean {
@@ -83,7 +100,7 @@ export class WriteGuard {
       if (confirm !== true) {
         this.audit(tool, summary, "blocked: no confirm");
         throw new WriteBlockedError(
-          `${tool} is public or cannot be undone, so it will not run without confirm: true. About to: ${summary}. Call again with confirm: true if that is what was asked for.`,
+          `${tool} is public or cannot be undone, so it will not run without ${this.confirmFlag}. About to: ${summary}. Call again with ${this.confirmFlag} if that is what was asked for.`,
         );
       }
     }

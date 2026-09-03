@@ -84,7 +84,7 @@ That is the whole install. `npx` fetches it on demand, so there is nothing to up
 
 ## 3. Set up your account 🔑
 
-The long version, every step with what to do when one fails, is in [references/setup.md](references/setup.md).
+The long version, every step with what to do when one fails, is in [INSTALL.md](INSTALL.md).
 
 You need an **application password**. It is not your login password. WordPress has generated these since version 5.6, they are revocable one at a time, and they carry the role of the user they belong to.
 
@@ -379,6 +379,26 @@ Trashing, drafting and ordinary edits are not guarded. Each is one click to undo
 
 `WORDPRESS_READ_ONLY=1` removes all 20 write tools from the list. `WORDPRESS_ALLOW_DESTRUCTIVE=0` keeps ordinary writes and blocks publishing and permanent deletion. `WORDPRESS_AUDIT_LOG=<path>` records every attempted write, allowed and blocked alike.
 
+### Every environment variable
+
+| Variable | What it does |
+|---|---|
+| `WORDPRESS_SITES` | JSON array of sites, for several at once. Takes priority over the single-site variables. |
+| `WORDPRESS_SITE_URL` | The site, for the single-site case, e.g. `https://example.com`. |
+| `WORDPRESS_USERNAME` | The WordPress login name the application password belongs to. |
+| `WORDPRESS_APP_PASSWORD` | From Users > Profile > Application Passwords. Not the login password. |
+| `WORDPRESS_SITE_NAME` | The short label for that single site. Defaults to its hostname. |
+| `WORDPRESS_DEFAULT_SITE` | Which site acts when a call names none. |
+| `WORDPRESS_READ_ONLY` | `1` hides every write from the tool list. |
+| `WORDPRESS_ALLOW_DESTRUCTIVE` | `0` keeps ordinary writes and blocks publishing and permanent deletion. |
+| `WORDPRESS_AUDIT_LOG` | Path to an append-only log of every attempted write. |
+| `WORDPRESS_REQUEST_TIMEOUT_MS` | Per-request deadline. Default `30000`. |
+| `WORDPRESS_MAX_RETRIES` | Retries on rate limits and 5xx. Reads only, never writes. Default `2`. |
+| `WORDPRESS_USER_AGENT` | Override the User-Agent sent to the site. |
+| `WORDPRESS_HTTP_PORT` | Port for `--http`. Default `8790`. |
+| `WORDPRESS_HTTP_HOST` | Interface for `--http`. Default `127.0.0.1`. |
+| `WORDPRESS_HTTP_TOKEN` | Bearer token required by the HTTP transport. |
+
 ---
 
 ## 8. Notes and gotchas ⚠️
@@ -541,7 +561,7 @@ tools that depend on it stop working; the other thirty carry on.
 
 ## Questions
 
-Run into a problem or have a question? [Open an issue](https://github.com/navidmoazzez/wordpress-mcp/issues) and I will help.
+Run into a problem or have a question? [Open an issue](https://github.com/thenavidm/wordpress-mcp/issues) and I will help.
 
 ## About the author 👋
 
