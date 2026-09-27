@@ -106,7 +106,7 @@ do, the other can.
 | 3 | [Set up your account](#3-set-up-your-account-) | Every click |
 | 4 | [Connect your client](#4-connect-your-client-) | Claude Code, Desktop, Cursor |
 | 5 | [Check it worked](#5-check-it-worked-) | `doctor` |
-| 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs-) | ~15,400 tokens a turn, or none |
+| 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs-) | Measured in Claude Code, and how to spend less |
 | 7 | [Tools](#7-tools-) | All 42, by what they reach |
 | 8 | [Writing safely](#8-writing-safely-) | What is guarded and what is not |
 | 9 | [Notes and gotchas](#9-notes-and-gotchas-) | WordPress's real behaviour |
@@ -331,58 +331,40 @@ The two that come up most:
 
 ## 6. Which surface, and what each costs 💸
 
-Both surfaces carry the same 42 tools. They differ in *when* you pay for them.
+Both surfaces are the same program with the same 42 tools. The
+difference is when the model pays for them. Measured in Claude Code:
 
-| What it costs | MCP server | CLI |
+| | MCP server | CLI |
 |---|---|---|
-| Loaded every turn | **~15,400 tokens** | nothing |
-| Loaded when WordPress comes up | nothing more | ~2,500, once |
-| Works on claude.ai and mobile | yes | no, there is no shell there |
-| Works in a script, cron or CI | no | yes |
-| You invoke it by | asking in plain language | typing a command |
+| Every message, with every tool loaded | 23,300 tokens | nothing |
+| Every message, Claude Code's default | 1,300 tokens | nothing |
+| When WordPress comes up | nothing more, or the tools it picks | 4,000 tokens for `SKILL.md`, once |
+| 20 messages with WordPress in 1, every tool loaded | 465,000 tokens | 4,000 tokens |
 
-An MCP server sends its whole tool list to the model on **every turn**, whether
-or not you mention WordPress. That is the price of being connected at all,
-before you ask anything.
+Claude Code's [tool search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search)
+is on by default: it sends only the tool names and the server instructions,
+and loads a tool's full definition when the model reaches for it. An app that
+loads every tool up front pays the first line on every message, whether
+WordPress comes up or not. With the skill added, Claude Code also lists its
+one-line description, about 150 tokens.
 
-Over twenty turns where WordPress comes up once, that is roughly 308,000 tokens
-against 2,500. When the whole conversation is WordPress, the gap closes and the
-server is the better experience, because you ask in plain language instead of
-remembering flags.
+Where the tokens go, with every tool loaded:
 
-That figure is measured, not estimated. It is the `tools/list` payload this
-server hands back in a real MCP handshake: 68,867 characters of JSON Schema,
-which tokenises to 15,354. `node .github/scripts/handshake.mjs` prints the
-character count from a live handshake, so you can check it against your own
-build rather than trusting this page.
-
-### Where the 15,400 goes
-
-Worth knowing, because most of it is not something anyone can write away:
-
-| Layer | Share |
+| Part of the tool list | Share |
 |---|---|
-| JSON Schema structure: types, enums, required lists, nesting | **42%** |
+| JSON Schema structure: types, required lists, nesting | 42% |
 | Argument descriptions | 38% |
 | Tool descriptions | 20% |
 
-Six and a half thousand of those tokens are the protocol serialising 42 tools as
-JSON Schema. Any MCP server with this many tools pays roughly the same. The 58%
-that is prose is what stops a model guessing that `categories` takes names.
+To spend less, turn the server off when you are not using it, which in Claude
+Code is the `/mcp` panel. `WORDPRESS_READ_ONLY=1` takes the 20 write tools off the list, leaving 22.
+Or install the CLI and add the server on the days it earns its place.
 
-### Spending less
-
-**Turn the server off when you are not editing the site.** In Claude Code that
-is `@wordpress` to toggle, and every client has an equivalent.
-
-**`WORDPRESS_READ_ONLY=1` drops it to the 22 reading tools**, measured at 7,000
-tokens rather than 15,400. Worth it on a site you only ever audit.
-
-**Or install the CLI and skip the server.** All 42 tools stay reachable, the
-standing cost is nothing, and you connect the server later on the days it earns
-its place.
-
----
+Measured on 2026-09-27 with Claude Code 2.1.257 on Claude Opus 5: one
+short prompt with and without the server connected, once with
+`ENABLE_TOOL_SEARCH=false` and once with the default, the difference read
+from the API's own usage figures. `SKILL.md` was measured the same way. Other
+apps and models count tokens a little differently.
 
 ## 7. Tools 🛠️
 
@@ -587,7 +569,7 @@ tools, and it works in Claude, Cursor, ChatGPT and anything else speaking MCP.
 <details>
 <summary><b>Should I use the MCP server or the CLI?</b></summary>
 
-Use the MCP server in an app with no terminal, like Claude Desktop's chat. Use the CLI anywhere commands run: an agent like Claude Code, Codex or OpenCode, a script or a cron job. The MCP server sends its full tool list to the model on every turn, and the CLI costs nothing until it runs.
+Use the MCP server in an app with no terminal, like Claude Desktop's chat. Use the CLI anywhere commands run: an agent like Claude Code, Codex or OpenCode, a script or a cron job. The MCP server's tools take up context on every message, and the CLI costs nothing until it runs.
 
 </details>
 
