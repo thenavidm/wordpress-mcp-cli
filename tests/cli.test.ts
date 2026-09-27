@@ -48,7 +48,7 @@ describe("flagsFor", () => {
       updates: z.array(z.object({ id: z.number() })).optional(),
     });
     expect(flags.find((f) => f.key === "categories")).toMatchObject({
-      kind: "string",
+      kind: "number",
       repeatable: true,
     });
     expect(flags.find((f) => f.key === "updates")).toMatchObject({ kind: "json", repeatable: true });
@@ -216,5 +216,14 @@ describe("documentation stays in step with the code", () => {
       .map((m) => m[1] as string)
       .filter((a) => !slugs.has(a));
     expect(dead).toEqual([]);
+  });
+});
+
+describe("a list of numbers", () => {
+  it("parses each value as a number, so validation passes", () => {
+    const flags = flagsFor({ ids: z.array(z.number().int()).describe("Ids.") });
+    expect(flags[0]).toMatchObject({ kind: "number", repeatable: true });
+    expect(parseArgs(["--ids", "1", "--ids", "22"], flags)).toEqual({ ids: [1, 22] });
+    expect(() => parseArgs(["--ids", "x"], flags)).toThrow(/number/);
   });
 });

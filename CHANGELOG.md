@@ -2,10 +2,17 @@
 
 | Component | Version | Last Updated |
 |-----------|---------|--------------|
-| wordpress-mcp-cli | 1.1.1 | 2026-09-04 |
+| wordpress-mcp-cli | 1.1.2 | 2026-09-27 |
 | Helper plugin | 2.1.0 | 2026-09-02 |
 
 ---
+
+## 1.1.2
+
+A list of numbers works on the command line. `wordpress-cli create-post
+--categories 5` passed the ID as the text "5", and validation rejected it, so
+categories, tags and the bulk tools' `--post-ids` only worked over MCP. Each
+value is now read as a number. The MCP tools were never affected.
 
 ## 1.1.1
 

@@ -94,7 +94,8 @@ function kindOf(schema: ZodTypeAny): { kind: FlagKind; choices?: string[]; repea
       // write `--status '"draft"'` instead.
       const scalar =
         elementKind === "ZodString" || elementKind === "ZodNumber" || elementKind === "ZodEnum";
-      return { kind: scalar ? "string" : "json", repeatable: true };
+      // A list of numbers parses each value as a number, or `--ids 1 --ids 2` fails validation.
+      return { kind: elementKind === "ZodNumber" ? "number" : scalar ? "string" : "json", repeatable: true };
     }
     default:
       // Objects, unions, records and anything else take a JSON literal.
