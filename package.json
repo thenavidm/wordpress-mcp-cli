@@ -1,6 +1,6 @@
 {
   "name": "@thenavidm/wordpress-mcp-cli",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "WordPress MCP server and CLI for Claude Code and AI agents. 42 tools for posts, pages, custom post types, media, taxonomies, users and comments over the WordPress REST API, plus Elementor page data, Rank Math SEO, redirects and bulk edits through an optional helper plugin. Multi-site.",
   "type": "module",
   "main": "./dist/index.js",
@@ -24,7 +24,7 @@
     "verify": "npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
-    "@thenavidm/slipway": "^0.1.11",
+    "@thenavidm/slipway": "^0.1.17",
     "zod": "^4.2.0"
   },
   "devDependencies": {
