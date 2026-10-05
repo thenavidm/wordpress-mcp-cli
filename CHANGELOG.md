@@ -1,11 +1,36 @@
 # WordPress MCP Server & CLI changelog
 
-| Component | Version | Last Updated |
-|-----------|---------|--------------|
-| wordpress-mcp-cli | 1.1.3 | 2026-10-04 |
-| Helper plugin | 2.1.0 | 2026-09-02 |
+| Component | Version |
+|---|---|
+| wordpress-mcp-cli | 2.0.0 |
+| Slipway | ^0.1.11 |
+| MCP TypeScript SDK, through Slipway | 2.3.0 |
+| Helper plugin | 2.1.0 |
+| WordPress REST API | wp/v2, WordPress 5.6 or newer |
+| Node | >= 22 |
 
 ---
+
+## 2.0.0, 2026-10-05
+
+Built on [Slipway](https://github.com/thenavidm/slipway) 0.1.11. The 42 tools keep their names and arguments, and every difference below was measured against 1.1.3, the last version on npm, before release.
+
+- **A person approves each call that cannot be undone, over MCP.** Publishing or scheduling, permanent deletion, replacing an Elementor layout and bulk edits: 13 tools can be one, and Slipway decides each call from its arguments, so saving a draft or trashing a post still needs nothing. Claude Code (2.1.246 and later) shows its own prompt, and a client that can show forms asks with an approval form whose one box starts unticked. Approvals are signed, bound to the exact call and work once. Where a client can do neither, the model's `confirm: true` still counts, and `WORDPRESS_CONFIRM=model` makes it enough everywhere. The audit log records who approved each write.
+- **`WORDPRESS_ALLOW_DESTRUCTIVE=0` still refuses publishing and permanent deletion** and keeps every ordinary write, as 1.1 did.
+- **A smaller tool list.** 21,418 tokens in Claude Code with every tool loaded, down from 23,263: the per-tool `$schema` line, an `execution` field and `additionalProperties: false` are gone. The last one advertised strict input while unknown keys were dropped anyway; the schema now says what happens. The resources now say their type.
+- **WordPress's status and its own error code pick the exit code.** 401 and 403 exit 4, a missing route or post 3, and a rate limit 7 whatever the status, as in 1.1. An argument WordPress rejects (400) exits 2 instead of 5. The helper plugin missing, Rank Math switched off or its redirections module off exit 10 instead of 5, since each is something to set up. Naming a site that is not configured, or none when several are, exits 2 instead of 5. An unknown command and a write hidden by `WORDPRESS_READ_ONLY=1` exit 2 instead of 1, and `doctor` with nothing configured 10 instead of 1. 1 now means an unexpected error. WordPress's code, the site and the endpoint come along in `details`.
+- **Fixed: a missing post on a helper route read as a missing plugin.** The plugin answers its own `not_found` for a post or redirect that does not exist, and 1.1 took every 404 on its namespace for the plugin not being installed. Only a missing route means that now; a missing post exits 3.
+- **Fixed: a write's summary said "publish" for a draft.** The line a write shows in its approval, its refusal, `--dry-run` and the audit log was written for the irreversible case only, so 1.1's audit log recorded every draft as a publish and every trash as a permanent deletion. It now names the draft, the update or the trash when that is what the call does.
+- **`which <words>` finds a command**, and `agent-context` describes every command, flag and setting as JSON. In Codex 0.159.3, finding the command that sets a post's Rank Math SEO title and meta description took 83,568 input tokens over the CLI instead of 84,368 (median of five), because Codex asked `which` instead of reading the full command list.
+- **`install <client>`** adds the server to Claude Code, Codex, Claude Desktop, Cursor, VS Code or Gemini CLI in each one's own format.
+- **The helper plugin's twelve are a toolset.** The command list groups them under their own heading, where 1.1 marked each with `+`, and `WORDPRESS_TOOLSETS=core` leaves them off both surfaces on a site without the plugin.
+- **Less work to start.** The entry turns on Node's compile cache, and the server spends 162 ms of CPU before its first answer where 1.1.3 spent 188 (median of 21 runs, taking turns on one busy Mac). npx installs 4 dependencies instead of 94.
+- **The release carries the desktop extension**, which the README now offers as the quickest Claude Desktop install, and the Docker image runs on Node 22.
+- **Docs fixes.** The README has a Features table, the icon loads from cdn.navid.me, the exit codes include 1, the server instructions and docs use American spelling, and THIRD_PARTY_NOTICES.md lists the production dependencies' licenses.
+
+### Upgrading
+
+Node 22 or newer; 1.1 ran on 20. Scripts keep working for success, a refused write, missing credentials, a rate limit and a missing post; one that read exit 1 as an unknown command or a hidden write should read 2, and one that read exit 5 as a missing helper plugin should read 10, or as a rejected argument 2. Over MCP, expect an approval prompt or form before anything publishes or is deleted for good; a headless agent that should do either with `confirm: true` alone needs `WORDPRESS_CONFIRM=model`. The audit log's lines gain `surface`, `risk` and `confirmed_by`, and each allowed write is followed by a `done` or `failed` line. A script that pipes JSON-RPC into the server must keep stdin open until it reads the answer: the server now stops when its input ends, as the MCP stdio binding asks. `--http` refuses a page from another site unless `WORDPRESS_HTTP_ALLOWED_ORIGINS` lists it. Some terminal screens grew: the general help by 55 tokens, for `which`, `install`, the flags and the exit codes it now lists; the command list by 36, for the toolset headings and the lines that point to `which` and `--help`; and the refusal to publish without `--confirm` by 8, for its code and a hint that `--confirm` is only for an action the user asked for.
 
 ## 1.1.3, 2026-10-04
 

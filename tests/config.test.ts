@@ -67,15 +67,15 @@ describe("loadConfig", () => {
     expect(config.allowDestructive).toBe(true);
   });
 
-  it("reads the safety switches", () => {
+  // Slipway enforces them, and writes the audit log; the config reports them, read the same way.
+  it("reads the safety switches as Slipway does", () => {
     const config = loadConfig({
       WORDPRESS_READ_ONLY: "1",
       WORDPRESS_ALLOW_DESTRUCTIVE: "0",
-      WORDPRESS_AUDIT_LOG: "/tmp/wp.log",
     } as NodeJS.ProcessEnv);
     expect(config.readOnly).toBe(true);
     expect(config.allowDestructive).toBe(false);
-    expect(config.auditPath).toBe("/tmp/wp.log");
+    expect(loadConfig({ WORDPRESS_ALLOW_DESTRUCTIVE: "maybe" } as NodeJS.ProcessEnv).allowDestructive).toBe(true);
   });
 });
 

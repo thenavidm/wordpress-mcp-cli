@@ -98,6 +98,14 @@ describe("WpClient", () => {
     ).rejects.toBeInstanceOf(HelperPluginMissingError);
   });
 
+  it("leaves the plugin's own 404 for a missing post as not found", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ code: "not_found", message: "Post not found", data: { status: 404 } }, { status: 404 }));
+    const error = await new WpClient(site, config, fetchImpl).helperGet("elementor/5", {}, "wp_get_elementor").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(WordPressError);
+    expect(error).not.toBeInstanceOf(HelperPluginMissingError);
+    expect((error as WordPressError).status).toBe(404);
+  });
+
   it("leaves a 404 on the core namespace as an ordinary error", async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ code: "rest_post_invalid_id" }, { status: 404 }),

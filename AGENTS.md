@@ -7,20 +7,23 @@ driving the server want [SKILL.md](./SKILL.md).
 
 ```
 src/
-  index.ts          entry, arg parsing, stdio or --http or doctor
-  server.ts         assembles the server, instructions, resources, prompts
+  index.ts          entry: turns on the compile cache and starts the app
+  app.ts            the Slipway app: tools, settings, resources, prompts, doctor
+  guide.ts          the server instructions, the concepts resource, the prompts
   config.ts         sites and settings, from env or injected
-  safety.ts         risk levels, the write guard, annotations, fencing
-  doctor.ts         the setup check
+  content.ts        what counts as publishing, and fencing text from the site
+  doctor.ts         the per-site checks
   api/
     client.ts       one WordPress install, both namespaces
     errors.ts       WordPress codes to actionable messages
   tools/
-    kit.ts          defineTool, register, shared arguments
+    kit.ts          defineTool for Slipway, shared arguments, error mapping
     *.ts            one module per group
-  transport/http.ts streamable HTTP
 plugin/             the PHP helper, GPL, copied into wp-content/mu-plugins/
 ```
+
+[Slipway](https://github.com/thenavidm/slipway) owns MCP over stdio and
+`--http`, the CLI, the write guard, approvals, annotations and the audit log.
 
 ## Rules that are not obvious
 
@@ -41,28 +44,31 @@ a real deletion worthless.
 
 **Reads retry, writes never.** A retried POST publishes twice.
 
-**Errors are returned, not thrown.** A thrown MCP error reaches the model as a
-protocol failure with no structure, discarding every message in `errors.ts`.
+**Errors are typed, and mapped once.** A tool throws `WordPressError` or
+`HelperPluginMissingError`; `toSlipway` in `tools/kit.ts` picks the exit code
+from the status and WordPress's own code, and Slipway hands the model the
+message, the code and the details as a tool result, never a protocol failure.
 
-**The helper namespace 404 means the plugin is missing**, not that the request
-was wrong. `client.ts` translates it; do not let a bare 404 through.
+**A 404 on the helper namespace means the plugin is missing**, not that the
+request was wrong, unless the plugin itself answered `not_found` for a post or
+redirect. `client.ts` tells the two apart; do not let a bare 404 through.
 
 ## Adding a tool
 
 1. Add it to the module for what it reaches, not the endpoint it calls.
-2. `defineTool`, with `surface: "core"` or `"helper"`.
+2. `defineTool`, with `surface: "core"` or `"helper"`, which is also its toolset.
 3. Write the description for a model that cannot see the code: what it reaches,
    what it costs, and what will surprise the caller. Platform constraints belong
    here, not only in the README.
-4. Add `...siteArg`, and `...confirmArg` if it can be destructive.
+4. Add `...siteArg`. Slipway adds `confirm` to anything that can be destructive.
 5. Export it from the group array. `tools/index.ts` picks it up.
-6. Update the count in `README.md`, `SKILL.md`, `server.ts` instructions and
-   `tests/tools.test.ts`, which asserts it.
+6. Update the count in `README.md`, `SKILL.md`, the instructions in `guide.ts`
+   and `tests/tools.test.ts`, which asserts it.
 
 ## Verify
 
 ```bash
-npm run verify      # typecheck, build, 64 tests
+npm run verify      # typecheck, build, 89 tests
 npx @modelcontextprotocol/inspector node dist/index.js
 ```
 

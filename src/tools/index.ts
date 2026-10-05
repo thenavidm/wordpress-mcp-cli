@@ -21,7 +21,7 @@ import { SEO_TOOLS } from "./seo.js";
 import { BULK_TOOLS } from "./bulk.js";
 import type { AnyToolSpec } from "./kit.js";
 
-export const ALL_TOOLS = [
+export const ALL_TOOLS: AnyToolSpec[] = [
   ...SITE_TOOLS,
   ...SEARCH_TOOLS,
   ...POST_TOOLS,
@@ -34,7 +34,7 @@ export const ALL_TOOLS = [
   ...BUILDER_TOOLS,
   ...SEO_TOOLS,
   ...BULK_TOOLS,
-] as unknown as AnyToolSpec[];
+];
 
 export { SITE_TOOLS, SEARCH_TOOLS, POST_TOOLS, PAGE_TOOLS, CUSTOM_TOOLS, MEDIA_TOOLS };
 export { TAXONOMY_TOOLS, PEOPLE_TOOLS, META_TOOLS, BUILDER_TOOLS, SEO_TOOLS, BULK_TOOLS };

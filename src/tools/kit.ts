@@ -1,66 +1,44 @@
 /**
- * Shared plumbing every tool uses.
+ * Shared plumbing every tool uses, now on Slipway.
  *
- * Registering forty-two tools by hand is forty-two chances to forget an
- * annotation, leak a stack trace, or skip the guard on something that publishes.
- * This wraps all of that once so a tool module only describes what it does.
+ * Tool modules keep describing themselves with a Zod shape, a risk and a
+ * handler. This adapter turns each into a Slipway tool, so the MCP server, the
+ * CLI, the write guard, annotations and errors all come from the framework
+ * instead of a copy kept in this repo.
  *
- * Two pieces of real logic live here.
- *
- * `risk` can be a function of the arguments rather than a fixed level, because
- * in WordPress the same tool is harmless or irreversible depending on what it
- * is passed. `wp_update_post` saving a draft is an ordinary write; the same
- * call with `status: "publish"` puts the post in front of an RSS reader and a
- * mailing list. A fixed level would either confirm every draft edit or confirm
- * nothing that matters.
+ * `risk` can still be a function of the arguments, because in WordPress the
+ * same tool is harmless or irreversible depending on what it is passed.
+ * `wp_update_post` saving a draft is an ordinary write; the same call with
+ * `status: "publish"` puts the post in front of an RSS reader and a mailing
+ * list. Such a tool tells clients its highest level, destructive, and Slipway's
+ * `riskFor` decides each call, so only the publishing call needs approval.
  *
  * `ctx.client` resolves the site per call rather than at startup, which is what
  * lets the same tool list serve a local install reading several sites from the
  * environment and a hosted one holding one site's credentials per request.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z, type ZodRawShape } from "zod";
-import { HelperPluginMissingError, WordPressError, WriteBlockedError } from "../api/errors.js";
+import { ApiError, NotConfiguredError, RateLimitError, SlipwayError, TimeoutError, httpError, toolkit, z, type Risk, type Tool } from "@thenavidm/slipway";
 import type { WpClient } from "../api/client.js";
+import { HelperPluginMissingError, WordPressError } from "../api/errors.js";
 import { selectSite, type Config, type Site } from "../config.js";
-import { annotationsFor, type Risk, type Surface, type WriteGuard } from "../safety.js";
+
+/** Which API a tool reaches. It is also the tool's toolset, so `WORDPRESS_TOOLSETS=core` leaves out the helper's twelve. */
+export type Surface =
+  /** WordPress core, `wp/v2`. Present on every modern install. */
+  | "core"
+  /** The helper plugin in this repo, `wordpress-mcp/v1`. */
+  | "helper";
 
 export type ToolContext = {
   config: Config;
-  guard: WriteGuard;
   /** The site a call acts on, resolved from the optional `site` argument. */
   site: (hint?: string) => Site;
   /** A client bound to that site. */
   client: (hint?: string) => WpClient;
 };
 
-export type ToolResult = {
-  content: { type: "text"; text: string }[];
-  isError?: boolean;
-};
-
-export function ok(data: unknown): ToolResult {
-  const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-  return { content: [{ type: "text", text }] };
-}
-
-/**
- * Errors come back as a normal result with `isError`, not a thrown exception.
- *
- * A thrown MCP error reaches the model as a protocol failure with no structure,
- * which throws away every actionable message in `api/errors.ts`. A result it can
- * read is the difference between a correct retry and a give-up.
- */
-export function fail(error: unknown): ToolResult {
-  const payload =
-    error instanceof WordPressError ||
-    error instanceof WriteBlockedError ||
-    error instanceof HelperPluginMissingError
-      ? error.toJSON()
-      : { error: (error as Error)?.message ?? String(error) };
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], isError: true };
-}
+const kit = toolkit<ToolContext>();
 
 /**
  * The `site` argument, on every tool.
@@ -78,16 +56,15 @@ export const siteArg = {
     ),
 };
 
-/** The confirmation argument, on tools that publish or cannot be undone. */
+/**
+ * Kept so tool modules read the same, but never sent: Slipway adds `confirm`
+ * to every tool that can publish or destroy, with one description everywhere.
+ */
 export const confirmArg = {
-  confirm: z
-    .boolean()
-    .optional()
-    .describe(
-      "Must be true for an action that publishes or cannot be undone. The tool says which of its arguments make it one, and returns what it was about to do if this is missing.",
-    ),
+  confirm: z.boolean().optional(),
 };
 
+/** Page size and page number, on every paginating tool. */
 export const pageArgs = {
   per_page: z
     .number()
@@ -99,7 +76,9 @@ export const pageArgs = {
   page: z.number().int().min(1).optional().describe("Which page of results, starting at 1."),
 };
 
-export type ToolSpec<S extends ZodRawShape> = {
+type Shape = Record<string, z.ZodType>;
+
+export type ToolSpec<S extends Shape> = {
   name: string;
   /** One line, imperative. Shown in tool pickers. */
   title: string;
@@ -115,93 +94,66 @@ export type ToolSpec<S extends ZodRawShape> = {
   summary?: (args: z.infer<z.ZodObject<S>>) => string;
 };
 
-export function defineTool<S extends ZodRawShape>(spec: ToolSpec<S>): ToolSpec<S> {
-  return spec;
-}
+export type AnyToolSpec = Tool<ToolContext>;
+
+/** Rank Math switched off, or its redirections module, is the site to set up, as the helper plugin is. */
+const SETUP_CODES = new Set(["plugin_not_active", "no_redirects_table"]);
 
 /**
- * A tool of any shape, for the one place tools are collected into a list.
- *
- * `ToolSpec` is generic over its schema, so a list of tools with different
- * schemas has no single type: each handler takes a different argument shape and
- * function parameters are contravariant. The checking that matters happens
- * inside each `defineTool` call, where schema and handler are proved against
- * each other. This only loosens the seam where they are gathered.
+ * The site's status picks the exit code: 401 and 403 (an application password
+ * without the role for it) are 4, a missing route or post is 3, 400 is 2 and
+ * the rest 5. A rate limit is 7 whatever the status, read from the words as
+ * 1.1 did, since a security plugin may refuse with a 403 or a 503. A missing
+ * helper plugin, Rank Math or its redirections module is something to set up,
+ * not to retry, so it exits 10. WordPress's own error code, the site and the
+ * endpoint ride along in `details`.
  */
-export type AnyToolSpec = Omit<ToolSpec<ZodRawShape>, "handler" | "summary" | "risk"> & {
-  risk: Risk | ((args: never) => Risk);
-  handler: (args: never, ctx: ToolContext) => Promise<unknown>;
-  summary?: (args: never) => string;
-};
-
-/** The worst level a tool can reach, for the annotations, which cannot see arguments. */
-export function declaredRisk(spec: AnyToolSpec): Risk {
-  return typeof spec.risk === "function" ? "destructive" : spec.risk;
+export function toSlipway(error: WordPressError | HelperPluginMissingError): SlipwayError {
+  if (error instanceof HelperPluginMissingError) {
+    return new NotConfiguredError(error.message, { details: { site: error.site, reason: "helper_plugin_missing" }, cause: error });
+  }
+  const options = {
+    ...(error.status ? { status: error.status } : {}),
+    details: { reason: error.code, site: error.site, endpoint: error.endpoint, ...(error.detail ? { detail: error.detail } : {}) },
+    cause: error,
+  };
+  if (error.status === 429 || /rate ?limit/i.test(`${error.code} ${error.message}`)) return new RateLimitError(error.message, options);
+  if (SETUP_CODES.has(error.code)) return new NotConfiguredError(error.message, options);
+  // Status 0 is a request the site never answered: a timeout, DNS, a refused connection.
+  if (error.code === "timeout") return new TimeoutError(error.message, options);
+  return error.status ? httpError(error.status, error.message, options) : new ApiError(error.message, options);
 }
 
-/** Register one tool against a server, with guarding and error handling. */
-export function register(
-  server: McpServer,
-  contextFor: (extra: unknown) => ToolContext,
-  spec: AnyToolSpec,
-): void {
-  server.registerTool(
-    spec.name,
-    {
-      title: spec.title,
-      description: spec.description,
-      inputSchema: spec.schema,
-      annotations: {
-        title: spec.title,
-        ...annotationsFor(declaredRisk(spec), { idempotent: spec.idempotent }),
-      },
-    },
-    // The SDK derives its callback type from the schema generic. This wrapper is
-    // generic over the same shape, but TypeScript cannot prove the two equal
-    // through the indirection, so the cast lives at this single boundary rather
-    // than in every tool definition.
-    (async (args: Record<string, unknown>, extra: unknown) => {
+export function defineTool<S extends Shape>(spec: ToolSpec<S>): Tool<ToolContext> {
+  const { confirm: _confirm, ...shape } = spec.schema as Shape;
+  const handler = spec.handler as (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>;
+  const riskFor = typeof spec.risk === "function" ? (spec.risk as (args: Record<string, unknown>) => Risk) : undefined;
+  return kit.defineTool({
+    name: spec.name,
+    title: spec.title,
+    description: spec.description,
+    input: z.object(shape),
+    // What clients see is the highest a call can be; riskFor decides each call.
+    risk: riskFor ? "destructive" : (spec.risk as Risk),
+    ...(riskFor ? { riskFor } : {}),
+    tags: [spec.surface],
+    ...(spec.idempotent !== undefined ? { idempotent: spec.idempotent } : {}),
+    ...(spec.summary ? { summary: spec.summary as (args: Record<string, unknown>) => string } : {}),
+    handler: async (args, ctx) => {
       try {
-        const ctx = contextFor(extra);
-        const risk = typeof spec.risk === "function" ? spec.risk(args as never) : spec.risk;
-        if (risk !== "read") {
-          const summary = spec.summary?.(args as never) ?? spec.name;
-          const confirm = (args as { confirm?: boolean }).confirm;
-          ctx.guard.check(spec.name, risk, confirm, summary);
-        }
-        return ok(await spec.handler(args as never, ctx));
+        return await handler(args, ctx);
       } catch (error) {
-        return fail(error);
+        throw error instanceof WordPressError || error instanceof HelperPluginMissingError ? toSlipway(error) : error;
       }
-    }) as never,
-  );
+    },
+  });
 }
 
-/**
- * Build the context a tool handler runs against.
- *
- * The MCP path and the CLI path both need one, and they differ only in where
- * the guard comes from: the server builds its own, while the CLI builds one
- * with `surface: "cli"` so a refusal names `--confirm` rather than
- * `confirm: true`. Assembling it here rather than in `server.ts` is what stops
- * the two surfaces drifting into two ideas of what a tool can reach.
- *
- * A client factory rather than a client, because "which site" is part of the
- * address in WordPress and is not known until a call names one. Clients are
- * cached per site name, since building one is cheap but doing it inside a loop
- * over forty posts is noise.
- */
-export function makeContext(
-  createClient: (site: Site) => WpClient,
-  config: Config,
-  guard: WriteGuard,
-): ToolContext {
+export function makeContext(createClient: (site: Site) => WpClient, config: Config): ToolContext {
   const clients = new Map<string, WpClient>();
   const site = (hint?: string): Site => selectSite(config, hint);
-
   return {
     config,
-    guard,
     site,
     client: (hint?: string) => {
       const resolved = site(hint);

@@ -49,18 +49,6 @@ export class WordPressError extends Error {
   }
 }
 
-/** Blocked by read-only mode or a missing confirm, before anything left the machine. */
-export class WriteBlockedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "WriteBlockedError";
-  }
-
-  toJSON(): Record<string, unknown> {
-    return { error: this.message, code: "write_blocked" };
-  }
-}
-
 /**
  * The helper plugin is not installed on this site.
  *

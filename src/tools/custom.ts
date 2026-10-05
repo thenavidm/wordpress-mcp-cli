@@ -13,7 +13,7 @@
  */
 
 import { z } from "zod";
-import { publishes } from "../safety.js";
+import { publishes } from "../content.js";
 import { confirmArg, defineTool, definedFields, pageArgs, siteArg, snippet } from "./kit.js";
 
 export const listPostTypes = defineTool({
@@ -134,7 +134,8 @@ export const createCustom = defineTool({
   },
   risk: (args) => (publishes(args.status) ? "destructive" : "write"),
   surface: "core",
-  summary: (args) => `publish "${snippet(args.title)}" as a live ${args.post_type} item`,
+  summary: (args) =>
+    publishes(args.status) ? `publish "${snippet(args.title)}" as a live ${args.post_type} item` : `save "${snippet(args.title)}" as a ${args.post_type} ${args.status && args.status !== "draft" ? args.status : "draft"}`,
   handler: async (args, ctx) => {
     const body: Record<string, unknown> = {
       title: args.title,
@@ -179,7 +180,7 @@ export const updateCustom = defineTool({
   risk: (args) => (publishes(args.status) ? "destructive" : "write"),
   surface: "core",
   idempotent: true,
-  summary: (args) => `publish ${args.post_type} item ${args.item_id}, making it live`,
+  summary: (args) => (publishes(args.status) ? `publish ${args.post_type} item ${args.item_id}, making it live` : `update ${args.post_type} item ${args.item_id}`),
   handler: async (args, ctx) => {
     const body = definedFields(args, [
       "title",
@@ -210,7 +211,7 @@ export const deleteCustom = defineTool({
   },
   risk: (args) => (args.force ? "destructive" : "write"),
   surface: "core",
-  summary: (args) => `permanently delete ${args.post_type} item ${args.item_id}`,
+  summary: (args) => (args.force ? `permanently delete ${args.post_type} item ${args.item_id}` : `move ${args.post_type} item ${args.item_id} to the trash`),
   handler: async (args, ctx) =>
     ctx
       .client(args.site)

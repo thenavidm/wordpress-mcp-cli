@@ -24,8 +24,10 @@ deleting content across the whole site.
   cannot call one.
 - **`WORDPRESS_ALLOW_DESTRUCTIVE=0`** keeps ordinary writes but blocks
   publishing and permanent deletion.
+- **Approval over MCP.** Publishing, permanent deletion, replacing an Elementor
+  layout and bulk edits wait for a person's approval where the client can ask.
 - **`WORDPRESS_AUDIT_LOG=<path>`** appends one JSON line for every attempted
-  write, allowed and blocked alike.
+  write, allowed and blocked alike, and who approved it.
 - **Revoke rather than rotate.** Application passwords are individually
   revocable in **Users → Profile**, under **Application Passwords**, without
   touching your login password or any other integration.
@@ -35,7 +37,8 @@ deleting content across the whole site.
 The HTTP transport binds `127.0.0.1` by default, and refuses to bind any other
 address without `WORDPRESS_HTTP_TOKEN` set. Anything that can reach the port can
 publish to and delete from the site without ever seeing the credential, so an
-open port is equivalent to handing out the application password.
+open port is equivalent to handing out the application password. A browser page
+from another site is refused unless `WORDPRESS_HTTP_ALLOWED_ORIGINS` lists it.
 
 ## What is never logged
 

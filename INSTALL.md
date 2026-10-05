@@ -27,7 +27,7 @@ says nothing about the cause.
    edit that user instead.
 3. Scroll to the **Application Passwords** section.
 4. Enter a descriptive name. The name is only a label, so use something you will
-   recognise later: `Claude MCP` rather than `test`.
+   recognize later: `Claude MCP` rather than `test`.
 5. Create the password.
 6. Copy what WordPress shows you. It is displayed once, and there is no way to
    see it again. Losing it means revoking that one and making another, which
@@ -144,7 +144,8 @@ not invalidate application passwords, which surprises people.
 |---|---|
 | `WORDPRESS_READ_ONLY=1` | Removes all 20 write tools from the list entirely |
 | `WORDPRESS_ALLOW_DESTRUCTIVE=0` | Keeps ordinary writes, blocks publishing and permanent deletion |
-| `WORDPRESS_AUDIT_LOG=<path>` | One JSON line per attempted write, allowed and blocked |
+| `WORDPRESS_AUDIT_LOG=<path>` | One JSON line per attempted write, allowed and blocked, and who approved it |
+| `WORDPRESS_TOOLSETS=core` | Leaves out the twelve tools that need the helper plugin |
 
 Read-only removes the tools rather than refusing them when called. A model
 cannot call a tool it cannot see, and cannot argue with a refusal it never

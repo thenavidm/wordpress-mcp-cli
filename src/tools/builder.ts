@@ -2,7 +2,7 @@
  * Elementor page data.
  *
  * Elementor does not use post content. It stores the whole page as one
- * serialised JSON tree in the `_elementor_data` meta field, and the post's
+ * serialized JSON tree in the `_elementor_data` meta field, and the post's
  * `content` is left as a stub that the builder ignores. That single fact
  * explains most of what surprises people here:
  *

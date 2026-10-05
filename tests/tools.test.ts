@@ -1,13 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
-import { ALL_TOOLS } from "../src/tools/index.js";
-import { declaredRisk } from "../src/tools/kit.js";
-import { buildServer, makeContext } from "../src/server.js";
+import { connect } from "@thenavidm/slipway/testing";
+import { WpClient, type FetchLike } from "../src/api/client.js";
+import { app } from "../src/app.js";
 import { configFromSites } from "../src/config.js";
-import { WordPressError } from "../src/api/errors.js";
+import { ALL_TOOLS } from "../src/tools/index.js";
+import { makeContext as makeToolContext } from "../src/tools/kit.js";
 
 const config = configFromSites([
   { name: "blog", url: "https://example.com", username: "a", appPassword: "aaaa bbbb cccc dddd eeee ffff" },
 ]);
+
+/** The context a handler gets, with the site's answers mocked. */
+const makeContext = (_config: typeof config, fetchImpl: FetchLike) =>
+  makeToolContext((site) => new WpClient(site, config, fetchImpl), config) as never;
+
+/** The arguments a client sees, `confirm` included where Slipway adds it. */
+const argsOf = (tool: (typeof ALL_TOOLS)[number]) => Object.keys((tool.jsonSchema.properties as object | undefined) ?? {});
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -39,29 +47,27 @@ describe("the tool list", () => {
 
   it("offers a confirm argument on everything that can be destructive", () => {
     for (const tool of ALL_TOOLS) {
-      if (declaredRisk(tool) !== "destructive") continue;
-      expect(Object.keys(tool.schema), `${tool.name} needs a confirm argument`).toContain("confirm");
+      if (tool.risk !== "destructive") continue;
+      expect(argsOf(tool), `${tool.name} needs a confirm argument`).toContain("confirm");
     }
   });
 
   it("never asks for a confirm on a pure read", () => {
     for (const tool of ALL_TOOLS) {
-      if (declaredRisk(tool) !== "read") continue;
-      expect(Object.keys(tool.schema), `${tool.name} should not ask to confirm a read`).not.toContain(
-        "confirm",
-      );
+      if (tool.risk !== "read") continue;
+      expect(argsOf(tool), `${tool.name} should not ask to confirm a read`).not.toContain("confirm");
     }
   });
 
   it("lets every tool that acts on content choose a site", () => {
     for (const tool of ALL_TOOLS) {
       if (tool.name === "wp_list_sites") continue;
-      expect(Object.keys(tool.schema), `${tool.name} needs a site argument`).toContain("site");
+      expect(argsOf(tool), `${tool.name} needs a site argument`).toContain("site");
     }
   });
 
   it("keeps the twelve helper-plugin tools to the groups that genuinely need it", () => {
-    const helper = ALL_TOOLS.filter((t) => t.surface === "helper").map((t) => t.name);
+    const helper = ALL_TOOLS.filter((t) => t.tags.includes("helper")).map((t) => t.name);
     expect(helper.sort()).toEqual(
       [
         "wp_bulk_delete",
@@ -81,22 +87,34 @@ describe("the tool list", () => {
   });
 });
 
-describe("buildServer", () => {
-  it("registers every tool by default", () => {
-    expect(buildServer(config).toolCount).toBe(42);
+describe("the server", () => {
+  const env = { WORDPRESS_SITE_URL: "https://example.com", WORDPRESS_USERNAME: "a", WORDPRESS_APP_PASSWORD: "aaaa bbbb cccc dddd eeee ffff" };
+  const count = async (extra: Record<string, string> = {}) => {
+    const mcp = await connect(app, { env: { ...env, ...extra } });
+    const tools = await mcp.listTools();
+    await mcp.close();
+    return tools.length;
+  };
+
+  it("registers every tool by default", async () => {
+    expect(await count()).toBe(42);
   });
 
-  it("removes the writes entirely in read-only mode rather than refusing at call time", () => {
-    const built = buildServer({ ...config, readOnly: true });
-    expect(built.toolCount).toBe(ALL_TOOLS.filter((t) => declaredRisk(t) === "read").length);
-    expect(built.toolCount).toBeLessThan(42);
+  it("removes the writes entirely in read-only mode rather than refusing at call time", async () => {
+    const reads = await count({ WORDPRESS_READ_ONLY: "1" });
+    expect(reads).toBe(ALL_TOOLS.filter((t) => t.risk === "read").length);
+    expect(reads).toBe(22);
+  });
+
+  it("leaves out the helper plugin's twelve with WORDPRESS_TOOLSETS=core", async () => {
+    expect(await count({ WORDPRESS_TOOLSETS: "core" })).toBe(30);
   });
 });
 
 describe("risk is decided by the arguments, not by the tool", () => {
   const riskOf = (name: string, args: Record<string, unknown>) => {
     const tool = ALL_TOOLS.find((t) => t.name === name)!;
-    return typeof tool.risk === "function" ? (tool.risk as (a: unknown) => string)(args) : tool.risk;
+    return tool.riskFor ? tool.riskFor(args) : tool.risk;
   };
 
   it("treats saving a draft as an ordinary write", () => {
@@ -118,7 +136,7 @@ describe("risk is decided by the arguments, not by the tool", () => {
 
 describe("tool handlers", () => {
   it("wp_list_sites reports the configured sites without contacting them", async () => {
-    const ctx = makeContext(config, vi.fn());
+    const ctx = makeContext(config, vi.fn() as never);
     const tool = ALL_TOOLS.find((t) => t.name === "wp_list_sites")!;
     const result = (await tool.handler({} as never, ctx)) as { sites: unknown[]; count: number };
     expect(result.count).toBe(1);
@@ -143,7 +161,7 @@ describe("tool handlers", () => {
   });
 
   it("wp_update_elementor refuses a tree that is not valid JSON, rather than blanking the page", async () => {
-    const ctx = makeContext(config, vi.fn());
+    const ctx = makeContext(config, vi.fn() as never);
     const tool = ALL_TOOLS.find((t) => t.name === "wp_update_elementor")!;
     await expect(
       tool.handler({ post_id: 5, elementor_data: "{not json" } as never, ctx),
@@ -151,11 +169,11 @@ describe("tool handlers", () => {
   });
 
   it("wp_update_elementor refuses a JSON object, since Elementor's top level is an array", async () => {
-    const ctx = makeContext(config, vi.fn());
+    const ctx = makeContext(config, vi.fn() as never);
     const tool = ALL_TOOLS.find((t) => t.name === "wp_update_elementor")!;
     await expect(
       tool.handler({ post_id: 5, elementor_data: '{"a":1}' } as never, ctx),
-    ).rejects.toBeInstanceOf(WordPressError);
+    ).rejects.toMatchObject({ exitCode: 2, details: { reason: "invalid_elementor_data" } });
   });
 
   it("wp_list_comments fences the bodies so a comment cannot read as an instruction", async () => {
@@ -174,7 +192,7 @@ describe("tool handlers", () => {
   });
 
   it("wp_upload_media reports an unreachable source rather than a bare fetch failure", async () => {
-    const ctx = makeContext(config, vi.fn());
+    const ctx = makeContext(config, vi.fn() as never);
     const globalFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 404 }));
     const tool = ALL_TOOLS.find((t) => t.name === "wp_upload_media")!;
     await expect(
@@ -183,7 +201,17 @@ describe("tool handlers", () => {
     globalFetch.mockRestore();
   });
 
-  it("wp_bulk_delete summarises the blast radius for the confirm message", () => {
+  it("summarizes what each call does, for the approval, --dry-run and the audit log", () => {
+    const summary = (name: string, args: Record<string, unknown>) => ALL_TOOLS.find((t) => t.name === name)!.summary!(args);
+    expect(summary("wp_create_post", { title: "Launch" })).toBe('save "Launch" as a draft');
+    expect(summary("wp_create_post", { title: "Launch", status: "publish" })).toContain('publish "Launch" immediately');
+    expect(summary("wp_create_post", { title: "Launch", status: "future", date: "2026-11-01T09:00:00" })).toContain("schedule");
+    expect(summary("wp_delete_post", { post_id: 5 })).toBe("move post 5 to the trash");
+    expect(summary("wp_delete_post", { post_id: 5, force: true })).toContain("permanently delete post 5");
+    expect(summary("wp_update_page", { page_id: 3, title: "x" })).toBe("update page 3");
+  });
+
+  it("wp_bulk_delete summarizes the blast radius for the confirm message", () => {
     const tool = ALL_TOOLS.find((t) => t.name === "wp_bulk_delete")!;
     const summary = tool.summary!({ post_ids: [1, 2, 3], force: true } as never);
     expect(summary).toContain("permanently delete 3 posts");

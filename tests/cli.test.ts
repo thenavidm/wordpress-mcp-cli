@@ -1,200 +1,144 @@
 /**
- * The CLI adapter.
+ * The two surfaces, now that Slipway builds both from ALL_TOOLS.
  *
- * What matters here is that the shell surface is derived from the tool specs
- * rather than described a second time, so the tests that count are the ones
- * asserting parity with ALL_TOOLS and the ones covering the argv shapes a
- * person actually types.
+ * Parsing, help and the exit-code contract are Slipway's and tested there. What
+ * matters here: every tool arrives on both surfaces intact, under 1.1's command
+ * names; the helper plugin's twelve are still marked; the resources and prompts
+ * still reach a client; WordPress's errors keep their exit codes; and the docs
+ * stay in step with the code.
  */
 
-import { readFileSync, existsSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { z } from "zod";
-import { flagsFor, parseArgs, isCliCommand, selectFields } from "../src/cli.js";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EXIT } from "@thenavidm/slipway";
+import { checkApp, cli, connect } from "@thenavidm/slipway/testing";
+import { HelperPluginMissingError, WordPressError } from "../src/api/errors.js";
+import { app } from "../src/app.js";
 import { ALL_TOOLS } from "../src/tools/index.js";
+import { toSlipway } from "../src/tools/kit.js";
 
-describe("flagsFor", () => {
-  it("derives a flag per schema key, kebab-cased", () => {
-    const flags = flagsFor({ per_page: z.number().optional() });
-    expect(flags[0]).toMatchObject({ key: "per_page", flag: "--per-page", kind: "number" });
+/** A fresh environment per call: the app keeps one context, and its clients, per environment. */
+const site = (): NodeJS.ProcessEnv => ({
+  WORDPRESS_SITE_URL: "https://example.com",
+  WORDPRESS_USERNAME: "a",
+  WORDPRESS_APP_PASSWORD: "aaaa bbbb cccc dddd eeee ffff",
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("WordPress on Slipway", () => {
+  it("offers every tool as a command and over MCP, under the same names", async () => {
+    const list = await cli(app, [], { env: site() });
+    for (const tool of ALL_TOOLS) expect(list.stdout).toContain(tool.command);
+    const mcp = await connect(app, { env: site() });
+    const names = (await mcp.listTools()).map((tool) => tool.name);
+    await mcp.close();
+    expect(names).toEqual(ALL_TOOLS.map((tool) => tool.name));
   });
 
-  it("reads required from the absence of .optional()", () => {
-    const flags = flagsFor({ title: z.string(), site: z.string().optional() });
-    expect(flags.find((f) => f.key === "title")?.required).toBe(true);
-    expect(flags.find((f) => f.key === "site")?.required).toBe(false);
+  it("routes a command in both spellings, as 1.1 did", async () => {
+    expect((await cli(app, ["wp-list-sites"], { env: site() })).code).toBe(0);
+    expect((await cli(app, ["wp_list_sites"], { env: site() })).code).toBe(0);
   });
 
-  it("carries .describe() through as help", () => {
-    const flags = flagsFor({ title: z.string().describe("The post title.") });
-    expect(flags[0]?.help).toBe("The post title.");
+  it("groups the twelve that need the helper plugin under a heading that says so", async () => {
+    const list = (await cli(app, [], { env: site() })).stdout;
+    const helper = list.slice(list.indexOf("helper: need the helper plugin"));
+    for (const tool of ALL_TOOLS.filter((t) => t.tags.includes("helper"))) expect(helper).toContain(tool.command);
+    expect(helper).not.toContain("wp-list-posts");
   });
 
-  it("finds the description whichever side of .optional() it was chained", () => {
-    const outer = flagsFor({ a: z.string().optional().describe("outer") });
-    const inner = flagsFor({ b: z.string().describe("inner").optional() });
-    expect(outer[0]?.help).toBe("outer");
-    expect(inner[0]?.help).toBe("inner");
+  it("serves the sites and concepts resources and the three prompts", async () => {
+    const mcp = await connect(app, { env: site() });
+    const resources = (await mcp.request("resources/list")) as { resources: Array<{ uri: string }> };
+    const sites = (await mcp.request("resources/read", { uri: "wordpress://sites" })) as { contents: Array<{ text: string }> };
+    const prompts = (await mcp.request("prompts/list")) as { prompts: Array<{ name: string }> };
+    await mcp.close();
+    expect(resources.resources.map((r) => r.uri).sort()).toEqual(["wordpress://concepts", "wordpress://sites"]);
+    expect(JSON.parse(sites.contents[0]!.text)).toMatchObject({ sites: [{ name: "example", url: "https://example.com", username: "a" }], read_only: false });
+    expect(sites.contents[0]!.text).not.toContain("aaaa");
+    expect(prompts.prompts.map((p) => p.name)).toEqual(["draft-post", "audit-seo", "find-and-fix"]);
   });
 
-  it("exposes an enum's values as choices", () => {
-    const flags = flagsFor({ status: z.enum(["draft", "publish"]).optional() });
-    expect(flags[0]).toMatchObject({ kind: "enum", choices: ["draft", "publish"] });
+  it("exits 10 when no site is configured, and 2 for a missing argument", async () => {
+    expect((await cli(app, ["wp-list-posts"], { env: {} })).code).toBe(EXIT.notConfigured);
+    expect((await cli(app, ["doctor"], { env: {} })).code).toBe(EXIT.notConfigured);
+    expect((await cli(app, ["wp-get-post"], { env: site() })).code).toBe(EXIT.usage);
   });
 
-  it("marks a scalar array repeatable and an object array json", () => {
-    const flags = flagsFor({
-      categories: z.array(z.number()).optional(),
-      updates: z.array(z.object({ id: z.number() })).optional(),
-    });
-    expect(flags.find((f) => f.key === "categories")).toMatchObject({
-      kind: "number",
-      repeatable: true,
-    });
-    expect(flags.find((f) => f.key === "updates")).toMatchObject({ kind: "json", repeatable: true });
+  it("takes a list of numbers as repeated flags, and refuses one that is not", async () => {
+    const calls = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ deleted: 2 }), { status: 200 }));
+    const run = await cli(app, ["wp-bulk-delete", "--post-ids", "1", "--post-ids", "22", "--confirm"], { env: site() });
+    expect(run.code).toBe(0);
+    expect(JSON.parse(calls.mock.calls[0]![1]!.body as string)).toMatchObject({ post_ids: [1, 22] });
+    expect((await cli(app, ["wp-bulk-delete", "--post-ids", "x", "--confirm"], { env: site() })).code).toBe(EXIT.usage);
+  });
+
+  it("passes slipway check", async () => {
+    const report = await checkApp(app, { env: site() });
+    expect(report.findings.filter((finding) => finding.level === "error")).toEqual([]);
   });
 });
 
-describe("parseArgs", () => {
-  const flags = flagsFor({
-    title: z.string(),
-    per_page: z.number().optional(),
-    confirm: z.boolean().optional(),
-    categories: z.array(z.string()).optional(),
-    meta: z.object({ key: z.string() }).optional(),
-    status: z.enum(["draft", "publish"]).optional(),
+describe("WordPress's errors keep their exit codes", () => {
+  const wp = (status: number, code: string, message = "WordPress refused.") =>
+    new WordPressError({ message, status, code, site: "blog", endpoint: "posts" });
+
+  it.each([
+    ["a rejected application password", wp(401, "incorrect_password"), EXIT.auth],
+    ["an Author editing someone else's post", wp(403, "rest_cannot_edit"), EXIT.auth],
+    ["a post that does not exist", wp(404, "rest_post_invalid_id"), EXIT.notFound],
+    ["the helper plugin's own missing post", wp(404, "not_found"), EXIT.notFound],
+    ["a 429", wp(429, "http_429"), EXIT.rateLimited],
+    ["a security plugin's rate limit, sent as a 403", wp(403, "too_many", "Rate limit exceeded, try later."), EXIT.rateLimited],
+    ["an argument WordPress rejected", wp(400, "rest_invalid_param"), EXIT.usage],
+    ["a broken site", wp(500, "http_500"), EXIT.api],
+    ["a site that never answered", wp(0, "network_error", "Could not reach blog."), EXIT.api],
+    ["a timeout", wp(0, "timeout", "The request to blog timed out."), EXIT.api],
+    ["Rank Math switched off", wp(400, "plugin_not_active", "RankMath SEO plugin is not active"), EXIT.notConfigured],
+    ["Rank Math's redirections module off", wp(400, "no_redirects_table"), EXIT.notConfigured],
+    ["the helper plugin missing", new HelperPluginMissingError("blog", "wp_get_elementor"), EXIT.notConfigured],
+  ])("%s", (_name, raw, code) => {
+    expect(toSlipway(raw).exitCode).toBe(code);
   });
 
-  it("accepts --flag value and --flag=value alike", () => {
-    expect(parseArgs(["--title", "hi"], flags)).toEqual({ title: "hi" });
-    expect(parseArgs(["--title=hi"], flags)).toEqual({ title: "hi" });
-  });
-
-  it("accepts the underscore spelling of a flag", () => {
-    expect(parseArgs(["--per_page", "20"], flags)).toEqual({ per_page: 20 });
-  });
-
-  it("treats a boolean as a bare switch", () => {
-    expect(parseArgs(["--title", "hi", "--confirm"], flags)).toEqual({ title: "hi", confirm: true });
-    expect(parseArgs(["--confirm=false"], flags)).toEqual({ confirm: false });
-  });
-
-  it("coerces numbers, and refuses ones that are not", () => {
-    expect(parseArgs(["--per-page", "25"], flags)).toEqual({ per_page: 25 });
-    expect(() => parseArgs(["--per-page", "many"], flags)).toThrow(/expects a number/);
-  });
-
-  it("parses a json flag, and refuses malformed json", () => {
-    expect(parseArgs(['--meta={"key":"value"}'], flags)).toEqual({ meta: { key: "value" } });
-    expect(() => parseArgs(["--meta", "{oops"], flags)).toThrow(/expects JSON/);
-  });
-
-  it("collects a repeatable flag into an array", () => {
-    expect(parseArgs(["--categories", "4", "--categories", "9"], flags)).toEqual({
-      categories: ["4", "9"],
-    });
-  });
-
-  it("checks an enum against its choices", () => {
-    expect(() => parseArgs(["--status", "live"], flags)).toThrow(/expects one of/);
-  });
-
-  it("fills the first required flag from a bare argument", () => {
-    expect(parseArgs(["Hello world"], flags)).toEqual({ title: "Hello world" });
-  });
-
-  it("wraps a bare argument when the required flag is repeatable", () => {
-    const repeatable = flagsFor({ post_ids: z.array(z.string()) });
-    expect(parseArgs(["42"], repeatable)).toEqual({ post_ids: ["42"] });
-  });
-
-  it("refuses an unknown option rather than dropping it", () => {
-    expect(() => parseArgs(["--nope", "x"], flags)).toThrow(/Unknown option/);
-  });
-
-  it("refuses a second bare argument", () => {
-    expect(() => parseArgs(["one", "two"], flags)).toThrow(/Unexpected argument/);
-  });
-});
-
-/**
- * Two paths under one head used to overwrite each other, so
- * `--select posts.id,posts.title` quietly returned only the title. Silent data
- * loss in a flag whose whole purpose is choosing what you keep, and on a
- * WordPress listing `--select` is not optional: a page of posts is mostly
- * rendered HTML and `_links` nobody asked for.
- */
-describe("--select keeps every path, not the last one", () => {
-  it("keeps both fields when two paths share a head", () => {
-    const data = { posts: [{ id: 12, title: "Launch notes", status: "draft" }] };
-    expect(selectFields(data, ["posts.id", "posts.title"])).toEqual({
-      posts: [{ id: 12, title: "Launch notes" }],
-    });
-  });
-
-  it("groups at every depth", () => {
-    expect(selectFields({ a: { b: { c: 1, d: 2, e: 3 } } }, ["a.b.c", "a.b.e"])).toEqual({
-      a: { b: { c: 1, e: 3 } },
-    });
-  });
-
-  it("mixes a scalar with nested paths", () => {
-    expect(selectFields({ id: 12, title: { rendered: "Hi", raw: "Hi" } }, [
-      "id",
-      "title.rendered",
-      "title.raw",
-    ])).toEqual({ id: 12, title: { rendered: "Hi", raw: "Hi" } });
-  });
-});
-
-describe("parity with the MCP surface", () => {
-  it("routes every tool name, in both spellings", () => {
-    for (const tool of ALL_TOOLS) {
-      expect(isCliCommand([tool.name])).toBe(true);
-      expect(isCliCommand([tool.name.replace(/_/g, "-")])).toBe(true);
-    }
-  });
-
-  it("builds flags for every tool without throwing", () => {
-    for (const tool of ALL_TOOLS) {
-      expect(() => flagsFor(tool.schema)).not.toThrow();
-    }
-  });
-
-  it("gives every schema key a flag", () => {
-    for (const tool of ALL_TOOLS) {
-      expect(flagsFor(tool.schema)).toHaveLength(Object.keys(tool.schema).length);
-    }
-  });
-
-  it("leaves the server's own flags alone", () => {
-    expect(isCliCommand(["--http"])).toBe(false);
-    expect(isCliCommand(["--version"])).toBe(false);
-    expect(isCliCommand([])).toBe(false);
+  it("keeps WordPress's code, the site and the endpoint, and no status for a site that never answered", () => {
+    const known = toSlipway(wp(0, "network_error"));
+    expect(known.details).toMatchObject({ reason: "network_error", site: "blog", endpoint: "posts" });
+    expect(known.status).toBeUndefined();
+    expect(toSlipway(wp(0, "timeout")).code).toBe("timeout");
   });
 });
 
 describe("documentation stays in step with the code", () => {
   const read = (p: string): string => readFileSync(new URL(p, import.meta.url), "utf-8");
-  const names = (text: string): Set<string> => new Set(text.match(/WORDPRESS_[A-Z_]+/g) ?? []);
+  const names = (text: string): Set<string> => new Set((text.match(/WORDPRESS_[A-Z_]+/g) ?? []).filter((name) => !name.endsWith("_")));
+  const source = (dir: string): string =>
+    readdirSync(new URL(dir, import.meta.url), { withFileTypes: true })
+      .map((entry) => (entry.isDirectory() ? source(`${dir}${entry.name}/`) : entry.name.endsWith(".ts") ? read(`${dir}${entry.name}`) : ""))
+      .join("\n");
+
+  /** Every variable the server reads: this repo's code, and Slipway's as agent-context lists them. */
+  const used = async (): Promise<Set<string>> => {
+    const context = JSON.parse((await cli(app, ["agent-context"], { env: {} })).stdout);
+    return new Set([...names(source("../src/")), ...context.settings.map((setting: { env: string }) => setting.env)]);
+  };
 
   /**
    * Four variables shipped undocumented and three never reached `--help`, which
    * is the kind of drift nobody notices because both sides look complete on
    * their own.
    */
-  it("documents every environment variable the code reads", () => {
-    const used = names(["config.ts", "transport/http.ts"].map((f) => read(`../src/${f}`)).join("\n"));
+  it("documents every environment variable the code reads", async () => {
     const documented = names(read("../README.md"));
-    expect([...used].filter((v) => !documented.has(v))).toEqual([]);
+    expect([...(await used())].filter((v) => !documented.has(v))).toEqual([]);
   });
 
-  it("lists every environment variable in --help", () => {
-    const used = names(["config.ts", "transport/http.ts"].map((f) => read(`../src/${f}`)).join("\n"));
-    const helped = names(read("../src/index.ts"));
-    // The help groups the three HTTP ones as `WORDPRESS_HTTP_PORT / _HOST / _TOKEN`.
-    const shorthand = new Set(["WORDPRESS_HTTP_HOST", "WORDPRESS_HTTP_TOKEN"]);
-    expect([...used].filter((v) => !helped.has(v) && !shorthand.has(v))).toEqual([]);
+  it("lists every environment variable in --help", async () => {
+    const help = (await cli(app, ["--help"], { env: {} })).stdout;
+    // The help groups the HTTP ones as `WORDPRESS_HTTP_PORT / _HOST / _TOKEN / _ALLOWED_ORIGINS`.
+    const shorthand = new Set(["WORDPRESS_HTTP_HOST", "WORDPRESS_HTTP_TOKEN", "WORDPRESS_HTTP_ALLOWED_ORIGINS"]);
+    expect([...(await used())].filter((v) => !help.includes(v) && !shorthand.has(v))).toEqual([]);
   });
 
   /**
@@ -216,14 +160,5 @@ describe("documentation stays in step with the code", () => {
       .map((m) => m[1] as string)
       .filter((a) => !slugs.has(a));
     expect(dead).toEqual([]);
-  });
-});
-
-describe("a list of numbers", () => {
-  it("parses each value as a number, so validation passes", () => {
-    const flags = flagsFor({ ids: z.array(z.number().int()).describe("Ids.") });
-    expect(flags[0]).toMatchObject({ kind: "number", repeatable: true });
-    expect(parseArgs(["--ids", "1", "--ids", "22"], flags)).toEqual({ ids: [1, 22] });
-    expect(() => parseArgs(["--ids", "x"], flags)).toThrow(/number/);
   });
 });

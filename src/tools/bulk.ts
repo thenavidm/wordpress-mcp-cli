@@ -14,7 +14,7 @@
  */
 
 import { z } from "zod";
-import { publishes } from "../safety.js";
+import { publishes } from "../content.js";
 import { confirmArg, defineTool, siteArg } from "./kit.js";
 
 export const bulkUpdate = defineTool({

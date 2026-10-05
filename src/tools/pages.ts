@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { publishes } from "../safety.js";
+import { publishes } from "../content.js";
 import { confirmArg, defineTool, definedFields, pageArgs, siteArg, snippet } from "./kit.js";
 
 const statusArg = z
@@ -106,7 +106,8 @@ export const createPage = defineTool({
   },
   risk: (args) => (publishes(args.status) ? "destructive" : "write"),
   surface: "core",
-  summary: (args) => `publish the page "${snippet(args.title)}" at a live public URL`,
+  summary: (args) =>
+    publishes(args.status) ? `publish the page "${snippet(args.title)}" at a live public URL` : `save the page "${snippet(args.title)}" as ${args.status && args.status !== "draft" ? args.status : "a draft"}`,
   handler: async (args, ctx) => {
     const body: Record<string, unknown> = {
       title: args.title,
@@ -147,7 +148,7 @@ export const updatePage = defineTool({
   risk: (args) => (publishes(args.status) ? "destructive" : "write"),
   surface: "core",
   idempotent: true,
-  summary: (args) => `publish page ${args.page_id}, putting it live at a public URL`,
+  summary: (args) => (publishes(args.status) ? `publish page ${args.page_id}, putting it live at a public URL` : `update page ${args.page_id}`),
   handler: async (args, ctx) => {
     const body = definedFields(args, [
       "title",

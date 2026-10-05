@@ -1,15 +1,37 @@
-import { describe, expect, it } from "vitest";
+/**
+ * What this server may do to a live site, now that the guard is Slipway's.
+ *
+ * WordPress decides per call: saving a draft is an ordinary write, the same
+ * tool with `status: "publish"` cannot be taken back. These run the real CLI
+ * and MCP surfaces against a mocked site, so they cover what a person and a
+ * client actually meet.
+ */
+
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { configFromSites } from "../src/config.js";
-import { annotationsFor, fence, publishes, WriteGuard } from "../src/safety.js";
-import { WriteBlockedError } from "../src/api/errors.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cli, connect } from "@thenavidm/slipway/testing";
+import { app } from "../src/app.js";
+import { fence, publishes } from "../src/content.js";
+import { ALL_TOOLS } from "../src/tools/index.js";
 
-const base = () =>
-  configFromSites([
-    { name: "blog", url: "https://example.com", username: "a", appPassword: "aaaa bbbb cccc dddd eeee ffff" },
-  ]);
+/** A fresh environment per test: the app keeps one context, and its clients, per environment. */
+const site = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => ({
+  WORDPRESS_SITE_URL: "https://example.com",
+  WORDPRESS_USERNAME: "a",
+  WORDPRESS_APP_PASSWORD: "aaaa bbbb cccc dddd eeee ffff",
+  ...extra,
+});
+
+/** The site answers every request with this, and the calls are kept for inspection. */
+function mockSite(body: unknown = { id: 7, link: "https://example.com/?p=7" }) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(
+    async () => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }),
+  );
+}
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("publishes", () => {
   it("counts publish and future, since a scheduled post goes live unattended", () => {
@@ -25,80 +47,77 @@ describe("publishes", () => {
   });
 });
 
-describe("WriteGuard", () => {
-  it("lets reads straight through", () => {
-    const guard = new WriteGuard({ ...base(), readOnly: true });
-    expect(() => guard.check("wp_list_posts", "read", undefined, "")).not.toThrow();
+describe("the write guard", () => {
+  it("lets an ordinary write through without a confirm", async () => {
+    const calls = mockSite();
+    const run = await cli(app, ["wp-create-post", "--title", "Hello", "--content", "<p>Hi</p>"], { env: site() });
+    expect(run.code).toBe(0);
+    expect(JSON.parse(calls.mock.calls[0]![1]!.body as string)).toMatchObject({ status: "draft" });
   });
 
-  it("lets an ordinary write through without a confirm", () => {
-    const guard = new WriteGuard(base());
-    expect(() => guard.check("wp_create_post", "write", undefined, "save a draft")).not.toThrow();
+  it("refuses to publish without --confirm, says what it was about to do, and sends nothing", async () => {
+    const calls = mockSite();
+    const run = await cli(app, ["wp-create-post", "--title", "Hello", "--content", "x", "--status", "publish"], { env: site() });
+    expect(run.code).toBe(2);
+    expect(JSON.parse(run.stderr).code).toBe("refused");
+    expect(run.stderr).toContain('publish \\"Hello\\" immediately on the site');
+    expect(calls).not.toHaveBeenCalled();
   });
 
-  it("blocks a destructive call with no confirm, and says what it was about to do", () => {
-    const guard = new WriteGuard(base());
-    try {
-      guard.check("wp_create_post", "destructive", undefined, "publish \"Hello\" immediately");
-      expect.unreachable("should have thrown");
-    } catch (error) {
-      expect(error).toBeInstanceOf(WriteBlockedError);
-      expect((error as Error).message).toContain('publish "Hello" immediately');
-      expect((error as Error).message).toContain("confirm: true");
-    }
+  it("publishes once confirmed", async () => {
+    const calls = mockSite();
+    const run = await cli(app, ["wp-create-post", "--title", "Hello", "--content", "x", "--status", "publish", "--confirm"], { env: site() });
+    expect(run.code).toBe(0);
+    expect(JSON.parse(calls.mock.calls[0]![1]!.body as string)).toMatchObject({ status: "publish" });
   });
 
-  it("lets a destructive call through once confirmed", () => {
-    const guard = new WriteGuard(base());
-    expect(() => guard.check("wp_delete_post", "destructive", true, "delete post 5")).not.toThrow();
+  it("treats trashing as reversible and force-deleting as not", async () => {
+    mockSite({ id: 5, status: "trash" });
+    expect((await cli(app, ["wp-delete-post", "--post-id", "5"], { env: site() })).code).toBe(0);
+    expect((await cli(app, ["wp-delete-post", "--post-id", "5", "--force"], { env: site() })).code).toBe(2);
   });
 
-  it("blocks every write in read-only mode, naming the variable that did it", () => {
-    const guard = new WriteGuard({ ...base(), readOnly: true });
-    expect(() => guard.check("wp_create_post", "write", true, "x")).toThrow(/WORDPRESS_READ_ONLY=1/);
+  it("hides every write in read-only mode, on both surfaces", async () => {
+    const env = site({ WORDPRESS_READ_ONLY: "1" });
+    const mcp = await connect(app, { env });
+    const tools = await mcp.listTools();
+    await mcp.close();
+    expect(tools.map((tool) => tool.name).sort()).toEqual(ALL_TOOLS.filter((tool) => tool.risk === "read").map((tool) => tool.name).sort());
+    const run = await cli(app, ["wp-create-post", "--title", "x", "--content", "y"], { env });
+    expect(run.code).toBe(2);
+    expect(run.stderr).toContain("WORDPRESS_READ_ONLY");
   });
 
-  it("blocks destructive calls when destructive is off, and points at the reversible path", () => {
-    const guard = new WriteGuard({ ...base(), allowDestructive: false });
-    expect(() => guard.check("wp_create_post", "destructive", true, "publish")).toThrow(
-      /saving this as a draft instead would go through/,
-    );
+  it("refuses publishing when destructive calls are off, even confirmed, and still saves drafts", async () => {
+    mockSite();
+    const env = site({ WORDPRESS_ALLOW_DESTRUCTIVE: "0" });
+    const publish = await cli(app, ["wp-create-post", "--title", "x", "--content", "y", "--status", "publish", "--confirm"], { env });
+    expect(publish.code).toBe(2);
+    expect(publish.stderr).toContain("WORDPRESS_ALLOW_DESTRUCTIVE=0");
+    expect((await cli(app, ["wp-create-post", "--title", "x", "--content", "y"], { env })).code).toBe(0);
   });
 
-  it("records allowed and blocked attempts alike in the audit log", () => {
-    const path = join(mkdtempSync(join(tmpdir(), "wp-mcp-")), "audit.log");
-    const guard = new WriteGuard({ ...base(), auditPath: path });
-
-    guard.check("wp_create_post", "write", undefined, "save a draft");
-    expect(() => guard.check("wp_delete_post", "destructive", undefined, "delete post 5")).toThrow();
-
-    const lines = readFileSync(path, "utf8").trim().split("\n").map((l) => JSON.parse(l));
-    expect(lines).toHaveLength(2);
-    expect(lines[0]).toMatchObject({ tool: "wp_create_post", outcome: "allowed" });
-    expect(lines[1]).toMatchObject({ tool: "wp_delete_post", outcome: "blocked: no confirm" });
-  });
-
-  it("does not take the tool call down when the audit log cannot be written", () => {
-    const guard = new WriteGuard({ ...base(), auditPath: "/nonexistent-dir/audit.log" });
-    expect(() => guard.check("wp_create_post", "write", undefined, "x")).not.toThrow();
+  it("records allowed and refused attempts alike in the audit log", async () => {
+    mockSite();
+    const path = join(mkdtempSync(join(tmpdir(), "wordpress-audit-")), "audit.log");
+    const env = site({ WORDPRESS_AUDIT_LOG: path });
+    await cli(app, ["wp-create-post", "--title", "a", "--content", "b"], { env });
+    await cli(app, ["wp-create-post", "--title", "a", "--content", "b", "--status", "publish"], { env });
+    const lines = readFileSync(path, "utf8").trim().split("\n").map((line) => JSON.parse(line) as { tool: string; outcome: string });
+    expect(lines.map((line) => line.outcome)).toEqual(["allowed", "done", "blocked: no confirm"]);
+    expect(lines.every((line) => line.tool === "wp_create_post")).toBe(true);
   });
 });
 
-describe("annotationsFor", () => {
-  it("marks a read as read-only and non-destructive", () => {
-    expect(annotationsFor("read")).toMatchObject({ readOnlyHint: true, destructiveHint: false });
-  });
-
-  it("marks a destructive tool honestly, so a client does not auto-approve it", () => {
-    expect(annotationsFor("destructive")).toMatchObject({
-      readOnlyHint: false,
-      destructiveHint: true,
-    });
-  });
-
-  it("respects an explicit idempotent hint on a write", () => {
-    expect(annotationsFor("write", { idempotent: true }).idempotentHint).toBe(true);
-    expect(annotationsFor("write").idempotentHint).toBe(false);
+describe("annotations", () => {
+  it("are honest, so a client does not auto-approve what cannot be undone", async () => {
+    const mcp = await connect(app, { env: site() });
+    const tools = await mcp.listTools();
+    await mcp.close();
+    const of = (name: string) => tools.find((tool) => tool.name === name)!.annotations ?? {};
+    expect(of("wp_list_posts")).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    expect(of("wp_create_post")).toMatchObject({ readOnlyHint: false, destructiveHint: true, idempotentHint: false });
+    expect(of("wp_update_post")).toMatchObject({ readOnlyHint: false, idempotentHint: true });
   });
 });
 

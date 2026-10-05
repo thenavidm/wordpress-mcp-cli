@@ -13,7 +13,7 @@
  */
 
 import { z } from "zod";
-import { publishes } from "../safety.js";
+import { publishes } from "../content.js";
 import { confirmArg, defineTool, definedFields, on, pageArgs, siteArg, snippet } from "./kit.js";
 
 const statusValues = ["publish", "future", "draft", "pending", "private"] as const;
@@ -147,7 +147,11 @@ export const createPost = defineTool({
   risk: (args) => (publishes(args.status) ? "destructive" : "write"),
   surface: "core",
   summary: (args) =>
-    `publish "${snippet(args.title)}" immediately on the site, where RSS and any mailing list plugin will pick it up`,
+    args.status === "future"
+      ? `schedule "${snippet(args.title)}" to go live at ${args.date ?? "its date"}, when RSS and any mailing list plugin will pick it up`
+      : publishes(args.status)
+        ? `publish "${snippet(args.title)}" immediately on the site, where RSS and any mailing list plugin will pick it up`
+        : `save "${snippet(args.title)}" as ${args.status && args.status !== "draft" ? args.status : "a draft"}`,
   handler: async (args, ctx) => {
     const body: Record<string, unknown> = {
       title: args.title,
@@ -193,7 +197,8 @@ export const updatePost = defineTool({
   risk: (args) => (publishes(args.status) ? "destructive" : "write"),
   surface: "core",
   idempotent: true,
-  summary: (args) => `publish post ${args.post_id}, making it live and visible to feeds`,
+  summary: (args) =>
+    publishes(args.status) ? `publish post ${args.post_id}, making it live and visible to feeds` : `update post ${args.post_id}`,
   handler: async (args, ctx) => {
     const body = definedFields(args, [
       "title",
@@ -230,7 +235,8 @@ export const deletePost = defineTool({
   },
   risk: (args) => (args.force ? "destructive" : "write"),
   surface: "core",
-  summary: (args) => `permanently delete post ${args.post_id}, with no way to restore it`,
+  summary: (args) =>
+    args.force ? `permanently delete post ${args.post_id}, with no way to restore it` : `move post ${args.post_id} to the trash`,
   handler: async (args, ctx) =>
     ctx.client(args.site).delete(`posts/${args.post_id}`, args.force ? { force: true } : {}),
 });

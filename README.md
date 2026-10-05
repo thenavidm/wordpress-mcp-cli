@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="https://cdn.navid.media/shared/tool-logos/wordpress.jpg" alt="WordPress" width="88">
+  <img src="https://cdn.navid.me/connectors/wordpress-icon.png" alt="WordPress" width="88">
 </div>
 
 # WordPress MCP Server & CLI
 
 [![npm](https://img.shields.io/npm/v/@thenavidm/wordpress-mcp-cli?color=orange&label=npm)](https://www.npmjs.com/package/@thenavidm/wordpress-mcp-cli)
-[![Licence](https://img.shields.io/badge/licence-MIT-green)](./LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![YouTube](https://img.shields.io/badge/YouTube-@thenavidm-red?logo=youtube&logoColor=white)](https://youtube.com/@thenavidm?sub_confirmation=1)
 [![X](https://img.shields.io/badge/X-@thenavidm-black?logo=x)](https://x.com/thenavidm)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-thenavidm-0A66C2?logo=linkedin&logoColor=white)](https://linkedin.com/in/thenavidm)
@@ -20,7 +20,7 @@ It defaults to drafts. Publishing is the one thing here that cannot be taken bac
 
 It also reads the meta fields WordPress hides from its own REST API, which is where Elementor layouts and ACF values actually live.
 
-Built and maintained by [Navid Moazzez](https://navid.me).
+Built and maintained by [Navid Moazzez](https://navid.me?utm_source=github&utm_medium=referral&utm_campaign=wordpress-mcp-cli&utm_content=readme). Built on [Slipway](https://github.com/thenavidm/slipway), which turns one definition of each tool into the MCP server and the CLI.
 
 ```
 You: Which posts on my blog are missing a meta description?
@@ -63,13 +63,14 @@ deletion, replacing an Elementor layout and bulk edits require. `--json` gives
 JSON, `--compact` puts it on one line, `--select` keeps only the fields you name,
 and errors are JSON on stderr whichever you pick.
 
-`--agent` is all of it at once: `--json --compact --no-input --no-color --yes`.
+`--agent` is compact JSON with no prompts, and it never confirms a write.
 
-Exit codes, so a script can branch without reading prose: `0` ok, `2` bad
-arguments or a refused write, `3` not found, `4` auth, `5` the site failed, `7`
-rate limited, `10` nothing configured.
+Exit codes, so a script can branch without reading prose: `0` ok, `1` an
+unexpected error, `2` bad arguments or a hidden or refused write, `3` not found,
+`4` auth, `5` the site failed, `7` rate limited, `10` nothing configured, or the
+helper plugin or Rank Math missing.
 
-### MCP server, for AI agents
+### MCP server, for your AI app
 
 `wordpress-mcp` is what Claude Code, Claude Desktop, Cursor and the rest launch.
 You never run it by hand:
@@ -84,6 +85,9 @@ claude mcp add wordpress \
 
 Then just ask: _"which of my published posts have no meta description?"_
 
+Each publish waits for your approval in the client, as
+[section 8](#8-writing-safely-) explains.
+
 Every other client is in [section 4](#4-connect-your-client-).
 
 ### Which one
@@ -97,6 +101,27 @@ Every other client is in [section 4](#4-connect-your-client-).
 They are the same program reading the same tool definitions, so anything one can
 do, the other can.
 
+## Features
+
+Every tool is both a command and an MCP tool, with the same name. The command
+is the tool name with dashes.
+
+| Capability | CLI command | MCP tool |
+|---|---|---|
+| See which sites and which user | `wordpress-cli wp-list-sites` / `wp-get-me` / `wp-get-settings` | `wp_list_sites` / `wp_get_me` / `wp_get_settings` |
+| Find anything | `wordpress-cli wp-search` | `wp_search` |
+| Posts and pages | `wordpress-cli wp-list-posts` / `wp-create-post` / `wp-update-post` / `wp-list-pages` | `wp_list_posts` / `wp_create_post` / `wp_update_post` / `wp_list_pages` |
+| Custom post types | `wordpress-cli wp-list-post-types` / `wp-list-custom` / `wp-create-custom` | `wp_list_post_types` / `wp_list_custom` / `wp_create_custom` |
+| Media | `wordpress-cli wp-list-media` / `wp-upload-media` | `wp_list_media` / `wp_upload_media` |
+| Categories, tags and taxonomies | `wordpress-cli wp-list-categories` / `wp-create-category` / `wp-list-taxonomy-terms` | `wp_list_categories` / `wp_create_category` / `wp_list_taxonomy_terms` |
+| Users and comments | `wordpress-cli wp-list-users` / `wp-list-comments` | `wp_list_users` / `wp_list_comments` |
+| Hidden meta and Elementor, with the helper plugin | `wordpress-cli wp-get-all-meta` / `wp-get-elementor` / `wp-update-elementor` | `wp_get_all_meta` / `wp_get_elementor` / `wp_update_elementor` |
+| Rank Math SEO and redirects, with the helper plugin | `wordpress-cli wp-get-rankmath` / `wp-update-rankmath` / `wp-list-redirects` | `wp_get_rankmath` / `wp_update_rankmath` / `wp_list_redirects` |
+| Bulk edits, with the helper plugin | `wordpress-cli wp-bulk-update` / `wp-bulk-delete` | `wp_bulk_update` / `wp_bulk_delete` |
+| Check your setup | `wordpress-cli doctor` | not a tool |
+
+All 42 are in [section 7](#7-tools-).
+
 ## Contents
 
 | # | Section | What is in it |
@@ -109,7 +134,7 @@ do, the other can.
 | 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs-) | Measured in Claude Code, and how to spend less |
 | 7 | [Tools](#7-tools-) | All 42, by what they reach |
 | 8 | [Writing safely](#8-writing-safely-) | What is guarded and what is not |
-| 9 | [Notes and gotchas](#9-notes-and-gotchas-) | WordPress's real behaviour |
+| 9 | [Notes and gotchas](#9-notes-and-gotchas-) | WordPress's real behavior |
 | 10 | [Troubleshooting](#10-troubleshooting-) | Symptom to cause |
 | 11 | [FAQ](#11-faq-) | Including what an MCP server is |
 
@@ -134,7 +159,7 @@ The thing that is genuinely impossible without this: **reading and writing the m
 
 ## 2. Quick install ⚡
 
-Node 20 or newer. Nothing else.
+Node 22 or newer. Nothing else.
 
     npx -y @thenavidm/wordpress-mcp-cli --version
 
@@ -240,6 +265,11 @@ claude mcp add wordpress \
 
 Quit Claude Desktop completely and reopen it.
 
+Or skip the JSON: download `wordpress-<version>.mcpb` from the
+[latest release](https://github.com/thenavidm/wordpress-mcp-cli/releases/latest)
+and open it. Claude Desktop asks for the site address, the username and the
+application password, and carries its own copy of everything it needs.
+
 > [!TIP]
 > Claude Desktop does not inherit your shell PATH, so a bare command name fails
 > silently. Use the absolute path from `which npx`, and fully quit the app
@@ -262,7 +292,8 @@ Host it somewhere with a public HTTPS URL, then in claude.ai: **Customize**, the
 > Anything that can reach that port can publish to and permanently delete from
 > your site without ever seeing the password. Set `WORDPRESS_HTTP_TOKEN` to a
 > long random string; the server refuses to bind anything but loopback without
-> one.
+> one. A page from another site is refused unless `WORDPRESS_HTTP_ALLOWED_ORIGINS`
+> lists it.
 
 ### Cursor
 
@@ -299,6 +330,14 @@ WORDPRESS_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
 
 Any stdio MCP client takes the same three things: the command `npx`, the args, and the env block.
 
+Or let the CLI write the entry, in each client's own format:
+
+```bash
+npx -y -p @thenavidm/wordpress-mcp-cli wordpress-cli install claude-code
+```
+
+It takes `claude-code`, `codex`, `claude-desktop`, `cursor`, `vscode` or `gemini`, and `--dry-run` shows the change first.
+
 ### More than one site
 
 Set `WORDPRESS_SITES` to a JSON array instead of the single-site variables, and every tool takes an optional `site`:
@@ -324,8 +363,8 @@ It walks the chain in order and stops at the first thing actually broken: HTTPS,
 
 The two that come up most:
 
-- **"Application password is 12 characters ignoring spaces."** That is a login password. Application passwords are 24 characters and are generated in the **Application Passwords** section of the profile screen.
-- **"Authenticated as … Can publish posts: no."** The credential is fine and the role is too low. Use an Editor or Administrator account.
+- **"12 characters ignoring spaces, where WordPress generates 24."** That is a login password. Application passwords are 24 characters and are generated in the **Application Passwords** section of the profile screen.
+- **"this user cannot publish posts."** The credential is fine and the role is too low. Use an Editor or Administrator account.
 
 ---
 
@@ -334,12 +373,12 @@ The two that come up most:
 Both surfaces are the same program with the same 42 tools. The
 difference is when the model pays for them. Measured in Claude Code:
 
-| | MCP server | CLI |
+| Cost | MCP server | CLI |
 |---|---|---|
-| Every message, with every tool loaded | 23,300 tokens | nothing |
+| Every message, with every tool loaded | 21,400 tokens | nothing |
 | Every message, Claude Code's default | 1,300 tokens | nothing |
 | When WordPress comes up | nothing more, or the tools it picks | 4,000 tokens for `SKILL.md`, once |
-| 20 messages with WordPress in 1, every tool loaded | 465,000 tokens | 4,000 tokens |
+| 20 messages with WordPress in 1, every tool loaded | 428,000 tokens | 4,000 tokens |
 
 Claude Code's [tool search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search)
 is on by default: it sends only the tool names and the server instructions,
@@ -352,23 +391,39 @@ Where the tokens go, with every tool loaded:
 
 | Part of the tool list | Share |
 |---|---|
-| JSON Schema structure: types, required lists, nesting | 42% |
-| Argument descriptions | 38% |
-| Tool descriptions | 20% |
+| Structure: names, types, required lists, nesting, annotations | 49% |
+| Argument descriptions | 32% |
+| Tool descriptions | 19% |
 
 To spend less, turn the server off when you are not using it, which in Claude
-Code is the `/mcp` panel. `WORDPRESS_READ_ONLY=1` takes the 20 write tools off the list, leaving 22.
+Code is the `/mcp` panel. `WORDPRESS_READ_ONLY=1` takes the 20 write tools off the list, leaving 22,
+and on a site without the helper plugin `WORDPRESS_TOOLSETS=core` leaves out the twelve that need it.
 Or install the CLI and add the server on the days it earns its place.
 
-Measured on 2026-09-27 with Claude Code 2.1.257 on Claude Opus 5: one
+Measured on 2026-10-05 with Claude Code 2.1.286 on Claude Opus 5.5: one
 short prompt with and without the server connected, once with
 `ENABLE_TOOL_SEARCH=false` and once with the default, the difference read
 from the API's own usage figures. `SKILL.md` was measured the same way. Other
 apps and models count tokens a little differently.
 
+Against 1.1.3, measured the same day: every tool loaded costs 21,418 tokens
+instead of 23,263, tool search the same within 2 tokens (1,330 against 1,328,
+one of them for American spelling in the server instructions), and `SKILL.md`
+82 more, because it now says how approval works over MCP and lists every exit
+code. In Codex 0.159.3 on gpt-6.1-sol, the same task, "find the command that
+sets a post's Rank Math SEO title and meta description, and the flags it
+requires", read a median of 83,568 input tokens on 2.0.0 against 84,368 on
+1.1.3 over the CLI, five runs each: Codex now asks `which` instead of reading
+the full command list. Over MCP, Codex prints the tool list with a script and
+cuts the printout to about 10,000 tokens, so it read about 9,600 on both
+versions, out of a full listing of 40,174 tokens on 2.0.0 against 40,531. The
+input totals, a median of 48,498 against 48,386, also carry the model's
+reasoning into its second request, which three of the five 2.0.0 runs did and
+none of the 1.1.3 runs; the two 2.0.0 runs that did not read 48,419 and 48,392.
+
 ## 7. Tools 🛠️
 
-Thirty need nothing installed. The twelve marked 🔌 need the [helper plugin](./plugin).
+Thirty need nothing installed. The twelve marked 🔌 need the [helper plugin](./plugin), and `wordpress-cli` lists them under their own heading. On a site without it, `WORDPRESS_TOOLSETS=core` leaves them off the list.
 
 **Sites and identity**
 
@@ -473,11 +528,13 @@ Thirty need nothing installed. The twelve marked 🔌 need the [helper plugin](.
 
 Writes work by default. Publishing is the point of the tool.
 
-Four things take `confirm: true`, because they are the ones WordPress cannot undo: **publishing or scheduling**, which reaches feeds and mailing lists within minutes; **permanent deletion**, meaning `force: true`; **replacing an Elementor layout**, which overwrites the whole page in one field; and **anything bulk**, where a wrong list is a wrong set of pages.
+Four things wait for your approval, because they are the ones WordPress cannot undo: **publishing or scheduling**, which reaches feeds and mailing lists within minutes; **permanent deletion**, meaning `force: true`; **replacing an Elementor layout**, which overwrites the whole page in one field; and **anything bulk**, where a wrong list is a wrong set of pages.
 
-Trashing, drafting and ordinary edits are not guarded. Each is one click to undo in wp-admin, and confirming everything would train the reflex the confirmation exists to prevent.
+Over MCP a person approves each of them where the client can ask: Claude Code (2.1.246 and later) shows its own prompt, and a client that can show forms asks with an approval form whose one box starts unticked. Each approval is signed, bound to that exact call and works once. Where a client can do neither, the model's `confirm: true` counts, and it should pass it only when you asked for that exact action. `WORDPRESS_CONFIRM=model` makes `confirm: true` enough everywhere, for an agent with no person to ask. In a terminal it is `--confirm`, which `--agent` never adds.
 
-`WORDPRESS_READ_ONLY=1` removes all 20 write tools from the list. `WORDPRESS_ALLOW_DESTRUCTIVE=0` keeps ordinary writes and blocks publishing and permanent deletion. `WORDPRESS_AUDIT_LOG=<path>` records every attempted write, allowed and blocked alike.
+Trashing, drafting and ordinary edits are not guarded. Each is one click to undo in wp-admin, and approving everything would train the reflex the approval exists to prevent.
+
+`WORDPRESS_READ_ONLY=1` removes all 20 write tools from the list. `WORDPRESS_ALLOW_DESTRUCTIVE=0` keeps ordinary writes and refuses publishing and permanent deletion. `WORDPRESS_AUDIT_LOG=<path>` records every attempted write, allowed and blocked alike, and who approved it.
 
 ### Every environment variable
 
@@ -493,14 +550,16 @@ Trashing, drafting and ordinary edits are not guarded. Each is one click to undo
 | `WORDPRESS_SITE_NAME` | the hostname | The short label for that single site. |
 | `WORDPRESS_DEFAULT_SITE` | none | Which site acts when a call names none. Without it, a call that names none is refused rather than guessed at. |
 
-**Safety.** All three apply identically to both surfaces, because both go
-through the same `WriteGuard`.
+**Safety.** They apply identically to both surfaces, because both go through
+Slipway's one guard.
 
 | Variable | Default | What it does |
 |---|---|---|
 | `WORDPRESS_READ_ONLY` | off | `1` removes all 20 write tools from the list, rather than refusing them at call time. |
 | `WORDPRESS_ALLOW_DESTRUCTIVE` | on | `0` keeps ordinary writes and blocks publishing and permanent deletion. |
-| `WORDPRESS_AUDIT_LOG` | none | Path to an append-only log of every attempted write, allowed and blocked alike. |
+| `WORDPRESS_AUDIT_LOG` | none | Path to an append-only log of every attempted write, allowed and blocked alike, and who approved it. |
+| `WORDPRESS_CONFIRM` | `human` | `model` lets `confirm: true` alone approve over MCP, for an agent with no person to ask. |
+| `WORDPRESS_TOOLSETS` | `all` | `core` leaves out the twelve tools that need the helper plugin. |
 
 **Tuning.**
 
@@ -512,13 +571,17 @@ through the same `WriteGuard`.
 | `WORDPRESS_HTTP_PORT` | `8790` | Port for `--http`. |
 | `WORDPRESS_HTTP_HOST` | `127.0.0.1` | Interface for `--http`. |
 | `WORDPRESS_HTTP_TOKEN` | none | Bearer token required by the HTTP transport. Without it, `--http` refuses to bind anything but loopback. |
+| `WORDPRESS_HTTP_ALLOWED_ORIGINS` | none | Comma-separated browser origins allowed to connect; a page from any other site is refused. |
+| `WORDPRESS_SURFACE` | `full` | `search` lists three tools that find, describe and run the rest. |
+| `WORDPRESS_TOOL_TIMEOUT_MS` | none | Give up on any tool after this long. |
+| `WORDPRESS_DEBUG` | `0` | `1` prints debug lines on stderr. |
 
 ---
 
 ## 9. Notes and gotchas ⚠️
 
 - **Publishing is the only irreversible act on a WordPress site.** Feeds, mailing list plugins and social auto-posters read a published post within minutes. Setting the status back to draft removes the page and recalls nothing.
-- **An Elementor page ignores its own post content.** The layout is a single serialised JSON tree in `_elementor_data`. Editing such a page with `wp_update_page` writes a field nothing renders, and creating one leaves a page that opens blank in the builder. Duplicate an existing page instead.
+- **An Elementor page ignores its own post content.** The layout is a single serialized JSON tree in `_elementor_data`. Editing such a page with `wp_update_page` writes a field nothing renders, and creating one leaves a page that opens blank in the builder. Duplicate an existing page instead.
 - **WordPress hides most meta from its own REST API.** Any key beginning with an underscore is refused outright, and any key not registered with `show_in_rest` is ignored. The `meta` argument on the post tools reaches a small subset; `wp_get_all_meta` reaches the rest.
 - **Posts take IDs, never names.** There is no endpoint that accepts a category called "Marketing". Look it up first.
 - **Custom post types are addressed by REST base**, which often differs from the label in wp-admin and sometimes from the slug. A type registered without `show_in_rest` cannot be reached over the API at all, however it is addressed.
@@ -539,9 +602,12 @@ Run `npx -y @thenavidm/wordpress-mcp-cli doctor` first. It names the first broke
 | `incorrect_password` on every call | A login password was used instead of an application password, or the site is on plain HTTP |
 | `rest_cannot_edit` on some posts, not others | The user is an Author, which reaches only its own posts. Use Editor or Administrator |
 | `rest_no_route` | The REST API is disabled or restricted by a security plugin, or the post type lacks `show_in_rest` |
-| "needs the WordPress MCP Helper plugin" | One of the twelve 🔌 tools was called on a site without the plugin in `mu-plugins/` |
+| "needs the WordPress MCP Helper plugin" | One of the twelve 🔌 tools was called on a site without the plugin in `mu-plugins/`. It exits 10 |
 | "returned HTML rather than a REST response" | A firewall, security plugin or maintenance page answered instead of WordPress |
-| "will not run without confirm: true" | Working as intended. The call publishes, deletes permanently, replaces a layout, or is bulk |
+| "will not run without --confirm" | Working as intended. The call publishes, deletes permanently, replaces a layout, or is bulk. See [section 8](#8-writing-safely-) |
+| `claude -p` will not publish | Headless Claude Code refuses tools that need a person. Give that agent `WORDPRESS_CONFIRM=model` |
+| No approval form appears | The client cannot show forms, so the model's `confirm: true` counts, and only for an action you asked for |
+| A piped request gets no answer | Stdin closed before the answer. The MCP stdio binding stops a server when its input ends; keep stdin open until you read the answer, or use the CLI |
 | Edits to an Elementor page do nothing | The layout is in meta, not post content. Use `wp_get_elementor` and `wp_update_elementor` |
 | "did not say which one to use" | Several sites are configured. Pass `site`, or set `WORDPRESS_DEFAULT_SITE` |
 | A post scheduled at the wrong hour | Dates use the site's timezone. Check `wp_get_settings` |
@@ -617,10 +683,11 @@ clicks.
 <summary><b>Can it publish something by accident?</b></summary>
 
 It cannot publish without being told to twice. Creating a post defaults to
-draft, and setting the status to publish or future is refused unless the call
-also carries `confirm: true`, which the model has to add deliberately after
-reading a description explaining why. Setting `WORDPRESS_ALLOW_DESTRUCTIVE=0`
-removes the possibility entirely while leaving drafts working.
+draft, and setting the status to publish or future waits for your approval:
+Claude Code shows its own prompt, a client that can show forms asks with one,
+and elsewhere the model has to pass `confirm: true` deliberately after reading a
+description explaining why. Setting `WORDPRESS_ALLOW_DESTRUCTIVE=0` removes the
+possibility entirely while leaving drafts working.
 
 </details>
 
@@ -628,8 +695,7 @@ removes the possibility entirely while leaving drafts working.
 <summary><b>Can it delete something by accident?</b></summary>
 
 It can trash a post without confirmation, and trash restores in one click from
-wp-admin. Permanent deletion, meaning `force: true`, is refused without
-`confirm: true`. Media is the exception worth knowing: WordPress does not trash
+wp-admin. Permanent deletion, meaning `force: true`, waits for your approval. Media is the exception worth knowing: WordPress does not trash
 attachments, so deleting one is immediate and permanent, and that tool always
 confirms.
 
@@ -691,7 +757,7 @@ tools that depend on it stop working; the other thirty carry on.
 
 Run into a problem or have a question? [Open an issue](https://github.com/thenavidm/wordpress-mcp-cli/issues) and I will help.
 
-## About the author 👋
+## About the author
 
 Navid Moazzez is a leading AI business strategist, and the host of the AI Creator Summit, watched by 100,000+ creators. He helps creators and founders master AI and build their own AI Operating System (AI OS) to automate their business and life. He creates useful free tools, MCP servers and CLIs that creators and founders can use in their own workflows.
 
@@ -709,9 +775,10 @@ If this is useful, star the repo and come say hi on [X](https://x.com/thenavidm)
 
 ## Dependencies
 
-| Library | Licence | What it does |
+| Library | License | What it does |
 |---|---|---|
-| [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) | MIT | The MCP protocol, stdio and HTTP transports |
+| [Slipway](https://github.com/thenavidm/slipway) | Apache-2.0 | The MCP server and the CLI from one definition of each tool, with the write guard |
+| [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) | Apache-2.0 | The MCP protocol, stdio and streamable HTTP transports, through Slipway |
 | [zod](https://github.com/colinhacks/zod) | MIT | Validates every tool argument before it reaches WordPress |
 
 ## License

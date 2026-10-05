@@ -123,10 +123,14 @@ export class WpClient {
             await delay(400 * (attempt + 1));
             continue;
           }
-          if (response.status === 404 && namespace === HELPER_NAMESPACE) {
+          const error = await errorFromResponse(response, this.site.name, endpoint);
+          // The plugin answers its own 404, `not_found`, for a post or redirect
+          // that does not exist. Any other 404 on its namespace is the route
+          // itself missing, which means the plugin is.
+          if (response.status === 404 && namespace === HELPER_NAMESPACE && error.code !== "not_found") {
             throw new HelperPluginMissingError(this.site.name, options.tool ?? "This tool");
           }
-          throw await errorFromResponse(response, this.site.name, endpoint);
+          throw error;
         }
 
         const text = await response.text();

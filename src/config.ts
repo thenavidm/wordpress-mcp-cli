@@ -17,6 +17,8 @@
  * reason the tools take a config rather than reading `process.env` themselves.
  */
 
+import { NotConfiguredError, UsageError, readPolicy } from "@thenavidm/slipway";
+
 export type Site = {
   /** Short label a tool's `site` argument matches, e.g. "blog". */
   name: string;
@@ -36,12 +38,12 @@ export type Config = {
   sites: Site[];
   /** Which site acts when a tool names none. Empty means "the only one". */
   defaultSite?: string;
+  /** What Slipway enforces, reported by wp_list_sites and the sites resource. */
   readOnly: boolean;
   allowDestructive: boolean;
   requestTimeoutMs: number;
   maxRetries: number;
   userAgent: string;
-  auditPath?: string;
 };
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
@@ -73,15 +75,9 @@ export function siteNameFromUrl(url: string): string {
 }
 
 // The environment is passed in rather than read from `process.env` directly, so
-// that `loadConfig` is a pure function of its argument and the safety switches
-// are actually testable. Reading the global here meant WORDPRESS_READ_ONLY was
+// that `loadConfig` is a pure function of its argument and the settings are
+// actually testable. Reading the global here meant WORDPRESS_READ_ONLY was
 // silently ignored whenever a caller supplied its own environment.
-function envFlag(env: NodeJS.ProcessEnv, name: string, fallback: boolean): boolean {
-  const raw = env[name];
-  if (raw === undefined || raw === "") return fallback;
-  return /^(1|true|yes|on)$/i.test(raw.trim());
-}
-
 function envInt(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
   const raw = env[name];
   if (!raw) return fallback;
@@ -177,7 +173,6 @@ export function configFromSites(
     requestTimeoutMs: options.requestTimeoutMs ?? DEFAULT_TIMEOUT_MS,
     maxRetries: options.maxRetries ?? 2,
     userAgent: options.userAgent ?? USER_AGENT,
-    auditPath: options.auditPath,
   };
 }
 
@@ -197,15 +192,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     });
   }
 
+  const policy = readPolicy(env, "WORDPRESS");
   return {
     sites: normalizeSites(raw),
     defaultSite: (env.WORDPRESS_DEFAULT_SITE ?? "").trim().toLowerCase() || undefined,
-    readOnly: envFlag(env, "WORDPRESS_READ_ONLY", false),
-    allowDestructive: envFlag(env, "WORDPRESS_ALLOW_DESTRUCTIVE", true),
+    readOnly: policy.readOnly,
+    allowDestructive: policy.allowDestructive,
     requestTimeoutMs: envInt(env, "WORDPRESS_REQUEST_TIMEOUT_MS", DEFAULT_TIMEOUT_MS),
     maxRetries: envInt(env, "WORDPRESS_MAX_RETRIES", 2),
     userAgent: env.WORDPRESS_USER_AGENT?.trim() || USER_AGENT,
-    auditPath: env.WORDPRESS_AUDIT_LOG?.trim() || undefined,
   };
 }
 
@@ -219,7 +214,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
  */
 export function selectSite(config: Config, hint?: string): Site {
   if (config.sites.length === 0) {
-    throw new Error(
+    throw new NotConfiguredError(
       "No WordPress site is configured. Set WORDPRESS_SITE_URL, WORDPRESS_USERNAME and WORDPRESS_APP_PASSWORD, or WORDPRESS_SITES for several sites. Run `wordpress-mcp doctor` for the details.",
     );
   }
@@ -234,7 +229,7 @@ export function selectSite(config: Config, hint?: string): Site {
     const asUrl = normalizeSiteUrl(wanted);
     const byUrl = config.sites.find((s) => s.url.toLowerCase() === asUrl.toLowerCase());
     if (byUrl) return byUrl;
-    throw new Error(
+    throw new UsageError(
       `Unknown site "${hint}". Configured sites: ${names.join(", ")}. Call wp_list_sites to see them with their URLs.`,
     );
   }
@@ -250,7 +245,7 @@ export function selectSite(config: Config, hint?: string): Site {
   const only = config.sites[0];
   if (config.sites.length === 1 && only) return only;
 
-  throw new Error(
+  throw new UsageError(
     `Several WordPress sites are configured and this call did not say which one to use. Pass site as one of: ${names.join(", ")}. Set WORDPRESS_DEFAULT_SITE to choose one without asking every time.`,
   );
 }
