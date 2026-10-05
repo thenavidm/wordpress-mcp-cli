@@ -120,7 +120,7 @@ is the tool name with dashes.
 | Bulk edits, with the helper plugin | `wordpress-cli wp-bulk-update` / `wp-bulk-delete` | `wp_bulk_update` / `wp_bulk_delete` |
 | Check your setup | `wordpress-cli doctor` | not a tool |
 
-All 42 are in [section 7](#7-tools-).
+All 42 are in [section 7](#7-tools-%EF%B8%8F).
 
 ## Contents
 
@@ -132,9 +132,9 @@ All 42 are in [section 7](#7-tools-).
 | 4 | [Connect your client](#4-connect-your-client-) | Claude Code, Desktop, Cursor |
 | 5 | [Check it worked](#5-check-it-worked-) | `doctor` |
 | 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs-) | Measured in Claude Code, and how to spend less |
-| 7 | [Tools](#7-tools-) | All 42, by what they reach |
+| 7 | [Tools](#7-tools-%EF%B8%8F) | All 42, by what they reach |
 | 8 | [Writing safely](#8-writing-safely-) | What is guarded and what is not |
-| 9 | [Notes and gotchas](#9-notes-and-gotchas-) | WordPress's real behavior |
+| 9 | [Notes and gotchas](#9-notes-and-gotchas-%EF%B8%8F) | WordPress's real behavior |
 | 10 | [Troubleshooting](#10-troubleshooting-) | Symptom to cause |
 | 11 | [FAQ](#11-faq-) | Including what an MCP server is |
 
